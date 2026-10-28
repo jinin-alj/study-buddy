@@ -14,6 +14,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+*.egg-info/
 
 # Node and Expo
 node_modules/

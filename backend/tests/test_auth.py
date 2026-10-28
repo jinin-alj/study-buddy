@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.models import User
 from app.security.tokens import ACCESS_TOKEN_TYPE, create_token
+from tests.helpers import auth_header
 
 
 def sign_up(client: TestClient, **overrides: Any) -> Any:
@@ -20,11 +21,6 @@ def sign_up(client: TestClient, **overrides: Any) -> Any:
     }
     form.update(overrides)
     return client.post("/auth/register", json=form)
-
-
-def auth_header(token: str) -> dict[str, str]:
-    """Authorization header for a bearer token."""
-    return {"Authorization": f"Bearer {token}"}
 
 
 def test_register_creates_account_and_returns_tokens(client: TestClient) -> None:

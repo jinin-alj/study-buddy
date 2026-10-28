@@ -1,11 +1,12 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import StrEnum
 
 from sqlalchemy import DateTime, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.models.common import enum_values, utc_now
 
 
 class UserRole(StrEnum):
@@ -13,19 +14,6 @@ class UserRole(StrEnum):
 
     STUDENT = "student"
     TEACHER = "teacher"
-
-
-def role_values(roles: type[UserRole]) -> list[str]:
-    """Store roles by their lowercase value instead of the Python member name."""
-    values = []
-    for role in roles:
-        values.append(role.value)
-    return values
-
-
-def utc_now() -> datetime:
-    """Current time in UTC, used as a column default."""
-    return datetime.now(UTC)
 
 
 class User(Base):
@@ -39,6 +27,6 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(40))
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role", values_callable=role_values)
+        Enum(UserRole, name="user_role", values_callable=enum_values)
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

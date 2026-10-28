@@ -6,7 +6,7 @@ Students explain a topic **out loud, from memory**, to an AI classmate who doesn
 
 ## Status
 
-MVP in progress. Done so far: repository tooling and CI, and backend accounts (sign-up, login, token refresh). Features land on the branches listed under "Roadmap".
+MVP in progress. Done so far: repository tooling and CI, backend accounts (sign-up, login, token refresh), backend classes, units and study sessions with the buddy and checker, the backend teacher dashboard and student progress, and mobile sign-up and sign-in. Features land on the branches listed under "Roadmap".
 
 ## Repository layout
 
@@ -49,7 +49,7 @@ Changing a model? Generate a migration, **read it**, then apply it:
 
 > Alembic does not drop Postgres enum types on downgrade. Add the drop by hand, as in the users migration.
 
-Mobile (in another terminal):
+Mobile (in another terminal). In the Claude desktop app, `.claude/launch.json` starts both servers from the browser pane.
 
 ```bash
 cd mobile
@@ -95,6 +95,75 @@ TEST_DATABASE_URL=postgresql+psycopg://study_buddy:<password>@localhost:5432/stu
 | `GET` | `/auth/me` | The signed-in user |
 | `GET` | `/health` | Uptime check |
 
+### Classes, units and study sessions
+
+1. A **teacher** creates a class and gets a six-character join code. The code avoids 0/O and 1/I/L so it can be read aloud.
+2. The teacher adds **units**: a title plus their own material (50–12,000 characters). Students never receive the material through the API, so sessions stay closed-book.
+3. A **student** joins with the code, picks a unit and starts a session. The buddy, Pip, greets them with a fixed line, so there's no wait.
+4. Each time the student speaks, the buddy replies with one curious question. About once every three replies it says a plausible mistake for the student to correct. It never confirms whether the student is right.
+5. On **finish**, the checker grades the whole conversation against the unit's **fixed key ideas** and returns:
+   - a **gap map**: key ideas marked covered or missing
+   - **misconceptions**, each with a correction, including any of the buddy's planted mistakes the student agreed with
+   - one exam-style **application question**
+   - one **next step**
+6. The student answers the application question once, and the checker grades it as correct, partly correct or incorrect.
+
+Sessions are capped at **15 minutes and 8 student turns** (`SESSION_MINUTES`, `MAX_STUDENT_TURNS`). The cap keeps sessions short, so the app doesn't become more screen time.
+
+| Method | Path | Who | What it does |
+| --- | --- | --- | --- |
+| `POST` | `/classrooms` | teacher | Create a class |
+| `GET` | `/classrooms` | both | Classes you own or joined |
+| `POST` | `/classrooms/join` | student | Join with a code |
+| `POST` | `/classrooms/{id}/units` | teacher | Add a unit with material |
+| `GET` | `/classrooms/{id}/units` | members | List units (no material) |
+| `POST` | `/sessions` | student | Start a session on a unit |
+| `GET` | `/sessions/{id}` | student | Conversation and feedback |
+| `POST` | `/sessions/{id}/turns` | student | Send what you said, get the buddy's reply |
+| `POST` | `/sessions/{id}/finish` | student | Get the gap map, question and next step |
+| `POST` | `/sessions/{id}/application-answer` | student | Answer the question, get it graded |
+| `GET` | `/classrooms/{id}/dashboard` | owner teacher | Class and per-student results |
+| `GET` | `/progress/me` | student | Own progress and mascot |
+
+**Fixed key ideas.** The first time any session on a unit finishes, the model extracts 3–8 key ideas from the material. They're stored on the unit (`units.key_ideas`), and the row is locked during extraction so two students finishing at once can't get different lists. Every later session is graded on that same list, which is what makes results comparable across students. Adding a unit never waits on the model.
+
+### Teacher dashboard and student progress
+
+A student's standing on a unit is their **latest** finished session, so earlier struggles don't hold them back.
+
+- **Per unit (class view):** how many students attempted it and their average coverage. For each key idea: how many students covered or missed it, how many misconceptions about it, and up to three **anonymous** examples. Misconceptions that don't match any idea are listed separately.
+- **Per student:** sessions completed, latest coverage and missing ideas per unit, and an average across the units attempted.
+- Students are **listed by name, never ranked**. There are no leaderboards, no streaks and no time-spent metrics; the research flagged ranking and labelling as harms.
+- **Mascot:** grows one level per 5 distinct key ideas the student has explained correctly, across all their sessions. Time in the app doesn't count. The app decides what each level looks like.
+
+Anything a user isn't allowed to see answers **404, not 403**, so outsiders can't tell whether a class or session exists.
+
+### AI layer (`backend/app/ai/`)
+
+- `chat_model.py`: the `ChatModel` interface. To use a hosted model, subclass it and return the new class from `get_chat_model()` in `app/dependencies.py`.
+- `ollama_model.py`: the Ollama adapter. It raises Ollama's context window to 8,192 tokens, because the default is too small for material plus a conversation.
+- `buddy.py`: the friendly buddy (temperature 0.7).
+- `checker.py`: the strict checker (temperature 0). Its output is forced into a JSON schema, validated with Pydantic and retried once if malformed. If it fails twice, the app gets a 503 and the session stays open.
+- `transcript.py`: student text is escaped and wrapped in `<student>` tags, so it can't close the tags and slip in instructions.
+
+If the model fails, the app gets a **503 and nothing is saved**, so the student can simply retry.
+
+### Mobile app (`mobile/src/`)
+
+| Path | What it is |
+| --- | --- |
+| `app/` | Screens (Expo Router). `_layout.tsx` uses `Stack.Protected`, so signed-out users only reach sign-in and sign-up, and signed-in users only reach the app. |
+| `api/client.ts` | JSON client: adds the access token, refreshes it once on a 401 and retries. Parallel 401s share one refresh. |
+| `auth/auth-context.tsx` | Session state, sign-in, sign-up and sign-out. Restores a saved session on launch while the splash screen stays up. |
+| `auth/token-storage.ts` / `.web.ts` | Where the refresh token lives (see below). |
+| `auth/validation.ts` | The same username, password and nickname rules as the backend, so errors show before sending. |
+| `components/` | Accessible text field, button, role picker and page wrapper. |
+| `theme.ts` | Colours that meet WCAG 2.1 AA contrast, and the 44-point minimum touch size. |
+
+**Token storage.** The access token is kept **in memory only**. The refresh token goes in the device keychain on iOS and Android (`expo-secure-store`). On web it goes in `sessionStorage`, which survives a reload but is cleared when the tab closes. That's safer than `localStorage`, but any script running on the page could still read it. Before a public web launch, move it to an `HttpOnly` cookie set by the backend.
+
+To point the app at another backend, set `EXPO_PUBLIC_API_URL` (default `http://localhost:8000`).
+
 ## Inputs and outputs
 
 - Input: a student's spoken explanation of a unit, and the teacher's material for that unit.
@@ -103,6 +172,16 @@ TEST_DATABASE_URL=postgresql+psycopg://study_buddy:<password>@localhost:5432/stu
 ## Known limitations
 
 - Ollama on a laptop serves only a few sessions at once and an 8B model makes a weak checker. Switch to a hosted model before real users.
+- **Checker accuracy is unmeasured, and with `llama3.1:8b` it is not good enough for teachers yet.** Live tests separated a strong student (67%) from a weak one (17%) correctly. But the model also:
+  - under-credited an idea the student did explain
+  - flagged correct statements as misconceptions
+  - once attributed the buddy's planted mistake to the student
+
+  Before any teacher sees scores: switch to a stronger model, then have teachers grade 100–200 explanations and compare them with the checker's.
+- Sessions graded before a unit had fixed key ideas are left out of idea-level tallies (they still count for coverage).
+- The dashboard is computed on each request. That's fine for class-sized data; cache it if classes get very large.
+- The first model call after Ollama starts takes about 15 seconds while the model loads. After that, buddy replies take about 1 second and the checker about 9 seconds on an M-series Mac.
+- Model calls block a worker thread while they wait. That's fine for the MVP; at scale, run more workers or move these routes to async.
 - On-device speech recognition works in Chrome on the web today. Phones need an Expo development build.
 - **No login rate limiting yet.** Add it at the gateway (or with Redis) before launch; see the `TODO` in `app/routers/auth.py`.
 - **No password reset**, because accounts have no email. A teacher-led reset is a possible follow-up.
