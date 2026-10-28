@@ -150,6 +150,7 @@ Anything a user isn't allowed to see answers **404, not 403**, so outsiders can'
 - `buddy.py`: the friendly buddy (temperature 0.7).
 - `checker.py`: the strict checker (temperature 0). Its output is forced into a JSON schema, validated with Pydantic and retried once if malformed. If it fails twice, the app gets a 503 and the session stays open.
 - `transcript.py`: student text is escaped and wrapped in `<student>` tags, so it can't close the tags and slip in instructions.
+- `attribution.py`: **no student is blamed for words they didn't say.** Before feedback is saved, each misconception's "You said" quote is checked against the transcript. It's kept only if at least 60% of its words (of 3+ letters) appear in the **student's** turns, and it matches the student at least as well as the buddy. This drops the buddy's planted mistakes and anything the model invented. A student who repeats the buddy's wrong idea in their own words is still caught. A plain "yes" to the buddy's mistake is not caught; that's deliberate, because missing it is better than misquoting a child. The log records only how many items were dropped, never their text.
 
 If the model fails, the app gets a **503 and nothing is saved**, so the student can simply retry.
 
@@ -221,7 +222,8 @@ To point the app at another backend, set `EXPO_PUBLIC_API_URL` (default `http://
 - The first model call after Ollama starts takes about 15 seconds while the model loads. After that, buddy replies take about 1 second and the checker about 9 seconds on an M-series Mac.
 - Model calls block a worker thread while they wait. That's fine for the MVP; at scale, run more workers or move these routes to async.
 - Voice has been tested only by its code paths and unit tests; nobody has yet spoken into it end to end. Phones need an Expo development build.
-- **The checker sometimes lists the buddy's planted mistake under "You said".** Students could be blamed for words they never said, and the same text reaches the teacher dashboard as an "example" of a class mistake. A backend guard that drops misconceptions not found in the student's own turns is the recommended next fix.
+- **The checker sometimes flags a correct statement as a misconception.** The attribution guard makes sure the quote is the student's, but it can't tell whether the statement is actually wrong. Simple word comparisons would also throw away real mistakes like "more energy" versus "less energy". A stronger model is the fix.
+- Sessions finished before the attribution guard existed still contain any misattributed quotes; only new sessions are filtered.
 - **No login rate limiting yet.** Add it at the gateway (or with Redis) before launch; see the `TODO` in `app/routers/auth.py`.
 - **No password reset**, because accounts have no email. A teacher-led reset is a possible follow-up.
 - **Tokens can't be revoked early.** A stolen refresh token works until it expires. A server-side denylist would fix this if needed.

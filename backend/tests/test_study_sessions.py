@@ -189,7 +189,12 @@ def test_finish_returns_gap_map_and_closes_session(
     student, unit_id = enrolled_student_with_unit(client)
     session = start(client, student, unit_id)
     fake_chat_model.queue_reply("Why sunlight?")
-    say(client, student, session["id"], "Plants make food in chloroplasts from soil.")
+    say(
+        client,
+        student,
+        session["id"],
+        "Plants make food in chloroplasts. Plants get their food from the soil.",
+    )
 
     response = finish_session(client, fake_chat_model, student, session["id"], CHECKER_REPLY)
 
@@ -327,3 +332,18 @@ def test_skipped_or_invented_idea_numbers_count_as_missing() -> None:
     statuses = [idea.status for idea in feedback.key_ideas]
     assert statuses == ["covered", "missing", "missing"]
     assert feedback.misconceptions[0].idea_number is None
+
+
+def test_buddys_planted_mistake_is_never_blamed_on_the_student(
+    client: TestClient, fake_chat_model: FakeChatModel
+) -> None:
+    student, unit_id = enrolled_student_with_unit(client)
+    session = start(client, student, unit_id)
+    fake_chat_model.queue_reply("Oh, so plants just eat dirt to grow big, right?")
+    say(client, student, session["id"], "Plants make glucose in the chloroplasts using light.")
+    verdict = checker_reply([1, 2], student_said="plants just eat dirt to grow big")
+
+    response = finish_session(client, fake_chat_model, student, session["id"], verdict)
+
+    assert response.status_code == 200
+    assert response.json()["feedback"]["misconceptions"] == []
