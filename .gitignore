@@ -1,0 +1,29 @@
+# Private research and personal rules, never committed
+docs/
+
+# Secrets
+.env
+*.env.local
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node and Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+coverage/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/

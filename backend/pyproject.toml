@@ -1,0 +1,44 @@
+[project]
+name = "study-buddy-backend"
+version = "0.1.0"
+description = "API for Study Buddy, where students explain topics from memory to an AI classmate."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162,<1",
+    "uvicorn[standard]>=0.54,<1",
+    "pydantic-settings>=2.16,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.2,<10",
+    "httpx>=0.28,<1",
+    "ruff>=0.17,<1",
+    "mypy>=2.4,<3",
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "B", "UP", "S", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Plain asserts are how pytest checks results
+"tests/*" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
