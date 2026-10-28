@@ -1,0 +1,26 @@
+{
+  "short_name": "Study Buddy",
+  "name": "Study Buddy",
+  "description": "Explain it from memory. Your buddy is the one learning.",
+  "icons": [
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1D4ED8",
+  "background_color": "#FFFFFF",
+  "lang": "en"
+}
