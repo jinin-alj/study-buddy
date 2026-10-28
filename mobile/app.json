@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Study Buddy",
-    "slug": "study-buddy",
+    "name": "Telmi",
+    "slug": "telmi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "studybuddy",
+    "scheme": "telmi",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
@@ -37,8 +37,8 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "Study Buddy uses the microphone so you can explain topics out loud. Study Buddy does not keep any audio.",
-          "speechRecognitionPermission": "Study Buddy turns your speech into text so your buddy can reply. Study Buddy does not keep any audio."
+          "microphonePermission": "Telmi uses the microphone so you can explain topics out loud. Telmi does not keep any audio.",
+          "speechRecognitionPermission": "Telmi turns your speech into text so your buddy can reply. Telmi does not keep any audio."
         }
       ]
     ],

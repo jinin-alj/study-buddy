@@ -9,12 +9,21 @@ class OllamaChatModel(ChatModel):
     """Talks to a local Ollama server. Free placeholder until a hosted model is chosen."""
 
     def __init__(
-        self, base_url: str, model_name: str, timeout_seconds: float, context_tokens: int
+        self,
+        base_url: str,
+        model_name: str,
+        timeout_seconds: float,
+        context_tokens: int,
+        api_key: str | None = None,
     ) -> None:
         self.model_name = model_name
         self.context_tokens = context_tokens
+        headers = {}
+        if api_key:
+            # Needed when Ollama sits behind the laptop's AI gateway rather than on localhost
+            headers["Authorization"] = f"Bearer {api_key}"
         # One shared client so connections are reused across requests
-        self.http_client = httpx.Client(base_url=base_url, timeout=timeout_seconds)
+        self.http_client = httpx.Client(base_url=base_url, timeout=timeout_seconds, headers=headers)
 
     def complete(
         self,

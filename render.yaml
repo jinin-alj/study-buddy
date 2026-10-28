@@ -1,0 +1,30 @@
+# Render Blueprint for the backend API. Docs: https://render.com/docs/blueprint-spec
+# Values marked sync: false are asked for once, when the Blueprint is first created.
+services:
+  - type: web
+    name: telmi-api
+    runtime: python
+    plan: free
+    # EU region, since the users are Spanish students and teachers
+    region: frankfurt
+    branch: main
+    # Only deploy commits whose GitHub checks (lint, types, tests) have passed
+    autoDeployTrigger: checksPass
+    rootDir: backend
+    buildCommand: pip install .
+    # Migrations run on every start; the free plan has no separate pre-deploy step
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.12
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: OLLAMA_BASE_URL
+        sync: false
+      - key: OLLAMA_API_KEY
+        sync: false

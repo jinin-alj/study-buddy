@@ -7,7 +7,7 @@ from app.routers import auth, classrooms, dashboard, study_sessions
 
 def create_app() -> FastAPI:
     """Build the FastAPI application with all routes attached."""
-    app = FastAPI(title="Study Buddy API", version="0.1.0")
+    app = FastAPI(title="Telmi API", version="0.1.0")
 
     app.add_middleware(
         CORSMiddleware,

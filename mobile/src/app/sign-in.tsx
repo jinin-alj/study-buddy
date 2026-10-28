@@ -7,6 +7,7 @@ import { useAuth } from '@/auth/auth-context';
 import { normalizeUsername } from '@/auth/validation';
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
+import { SlowRequestNotice } from '@/components/slow-request-notice';
 import { TextField } from '@/components/text-field';
 import { colors, minimumTouchSize, spacing } from '@/theme';
 
@@ -35,7 +36,7 @@ export default function SignInScreen() {
   return (
     <Screen>
       <Text accessibilityRole="header" style={styles.title}>
-        Study Buddy
+        Telmi
       </Text>
       <Text style={styles.subtitle}>Explain it from memory. Your buddy is the one learning.</Text>
 
@@ -65,6 +66,7 @@ export default function SignInScreen() {
       ) : null}
 
       <Button label="Sign in" onPress={handleSubmit} loading={submitting} />
+      <SlowRequestNotice waiting={submitting} />
 
       <Link href="/sign-up" style={styles.link}>
         New here? Create an account

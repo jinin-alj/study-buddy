@@ -2,10 +2,14 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
+import { wakeBackend } from '@/api/health';
 import { AuthProvider, useAuth } from '@/auth/auth-context';
 
 // Keep the splash up until we know whether a saved session exists, to avoid a sign-in flash
 SplashScreen.preventAutoHideAsync();
+
+// The free backend sleeps when idle; start waking it while the person is still typing
+wakeBackend();
 
 function RootNavigator() {
   const { status, user } = useAuth();
