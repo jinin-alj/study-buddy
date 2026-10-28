@@ -1,10 +1,11 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text } from 'react-native';
 
 import { ApiError } from '@/api/client';
 import { getSession } from '@/api/study';
 import type { StudySession } from '@/api/types';
+import { BackToHome } from '@/components/back-to-home';
 import { Screen } from '@/components/screen';
 import { ActiveSession } from '@/features/session/active-session';
 import { SessionResults } from '@/features/session/session-results';
@@ -13,7 +14,7 @@ import { lineToSpeak } from '@/features/session/session-text';
 import { getDefaultSpeechLanguage } from '@/speech/languages';
 import type { SpeechLanguage } from '@/speech/languages';
 import { speak, stopSpeaking } from '@/speech/text-to-speech';
-import { colors, minimumTouchSize, spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 
 export default function SessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
@@ -50,14 +51,7 @@ export default function SessionScreen() {
 
   return (
     <Screen>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Back to my classes"
-        onPress={() => router.replace('/')}
-        style={styles.back}
-      >
-        <Text style={styles.backLabel}>‹ My classes</Text>
-      </Pressable>
+      <BackToHome />
 
       {loadError ? (
         <Text accessibilityRole="alert" style={styles.error}>
@@ -91,15 +85,6 @@ export default function SessionScreen() {
 }
 
 const styles = StyleSheet.create({
-  back: {
-    minHeight: minimumTouchSize,
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-  },
-  backLabel: {
-    color: colors.primary,
-    fontSize: 16,
-  },
   title: {
     fontSize: 26,
     fontWeight: '700',
