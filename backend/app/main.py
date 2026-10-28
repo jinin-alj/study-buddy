@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import auth
+from app.routers import auth, classrooms, study_sessions
 
 
 def create_app() -> FastAPI:
@@ -22,6 +22,8 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth.router)
+    app.include_router(classrooms.router)
+    app.include_router(study_sessions.router)
     return app
 
 

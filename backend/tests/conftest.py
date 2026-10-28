@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from app.database import Base, get_db  # noqa: E402
+from app.dependencies import get_chat_model  # noqa: E402
 from app.main import create_app  # noqa: E402
+from tests.fakes import FakeChatModel  # noqa: E402
 
 
 def build_test_engine() -> Engine:
@@ -45,13 +47,23 @@ def db() -> Iterator[Session]:
 
 
 @pytest.fixture
-def client(db: Session) -> Iterator[TestClient]:
-    """API client that uses the test database session."""
+def fake_chat_model() -> FakeChatModel:
+    """A language model stand-in that returns whatever the test queues."""
+    return FakeChatModel()
+
+
+@pytest.fixture
+def client(db: Session, fake_chat_model: FakeChatModel) -> Iterator[TestClient]:
+    """API client that uses the test database session and the fake model."""
     app = create_app()
 
     def override_get_db() -> Iterator[Session]:
         yield db
 
+    def override_get_chat_model() -> FakeChatModel:
+        return fake_chat_model
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_chat_model] = override_get_chat_model
     with TestClient(app) as test_client:
         yield test_client

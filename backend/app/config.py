@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     refresh_token_days: int = Field(default=30, gt=0)
     cors_origins: str = "http://localhost:8081"
 
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.1:8b"
+    ollama_timeout_seconds: float = Field(default=120.0, gt=0)
+    # Ollama's default context window is too small for material plus a full conversation
+    ollama_context_tokens: int = Field(default=8192, gt=0)
+
+    # Short, capped sessions keep the app from becoming more screen time
+    session_minutes: int = Field(default=15, gt=0)
+    max_student_turns: int = Field(default=8, gt=0)
+
     def cors_origin_list(self) -> list[str]:
         """Split the comma-separated CORS_ORIGINS value into a list."""
         origins = []
