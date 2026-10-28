@@ -1,10 +1,22 @@
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
-import type { ExpoSpeechRecognitionErrorCode } from 'expo-speech-recognition';
+import { EventEmitter, useEventListener } from 'expo';
+import type {
+  ExpoSpeechRecognitionErrorCode,
+  ExpoSpeechRecognitionNativeEventMap,
+} from 'expo-speech-recognition';
 import { useState } from 'react';
 
 import type { SpeechLanguage } from '@/speech/languages';
+import { speechModule } from '@/speech/speech-module';
+import type { SpeechModule } from '@/speech/speech-module';
 import { appendPhrase, joinTranscript } from '@/speech/transcript';
 import { stopSpeaking } from '@/speech/text-to-speech';
+
+// Never emits anything; lets the event hooks run the same way when speech isn't available
+const silentEmitter = new EventEmitter<{
+  [EventName in keyof ExpoSpeechRecognitionNativeEventMap]: (
+    event: ExpoSpeechRecognitionNativeEventMap[EventName],
+  ) => void;
+}>();
 
 /** A friendly sentence for each recognition error the student might hit. */
 export function describeSpeechError(errorCode: ExpoSpeechRecognitionErrorCode): string | null {
@@ -26,10 +38,13 @@ export function describeSpeechError(errorCode: ExpoSpeechRecognitionErrorCode): 
   return "Voice isn't working right now. You can type instead.";
 }
 
-/** Whether this device or browser can recognise speech at all. */
-export function isSpeechRecognitionAvailable(): boolean {
+/** Whether this build, device or browser can recognise speech at all. */
+export function isSpeechRecognitionAvailable(module: SpeechModule | null = speechModule): boolean {
+  if (module === null) {
+    return false;
+  }
   try {
-    return ExpoSpeechRecognitionModule.isRecognitionAvailable();
+    return module.isRecognitionAvailable();
   } catch (error) {
     console.warn('Speech recognition check failed', error);
     return false;
@@ -43,13 +58,14 @@ export function useSpeechToText() {
   const [inProgressText, setInProgressText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAvailable] = useState(isSpeechRecognitionAvailable);
+  const eventSource = speechModule ?? silentEmitter;
 
-  useSpeechRecognitionEvent('start', () => setIsListening(true));
-  useSpeechRecognitionEvent('end', () => {
+  useEventListener(eventSource, 'start', () => setIsListening(true));
+  useEventListener(eventSource, 'end', () => {
     setIsListening(false);
     setInProgressText('');
   });
-  useSpeechRecognitionEvent('result', (event) => {
+  useEventListener(eventSource, 'result', (event) => {
     const phrase = event.results[0]?.transcript ?? '';
     if (event.isFinal) {
       setFinishedText((previous) => appendPhrase(previous, phrase));
@@ -58,21 +74,25 @@ export function useSpeechToText() {
       setInProgressText(phrase);
     }
   });
-  useSpeechRecognitionEvent('error', (event) => {
+  useEventListener(eventSource, 'error', (event) => {
     setErrorMessage(describeSpeechError(event.error));
   });
 
   async function startListening(language: SpeechLanguage) {
     setErrorMessage(null);
+    if (speechModule === null) {
+      setErrorMessage(describeSpeechError('service-not-allowed'));
+      return;
+    }
     stopSpeaking();
     try {
-      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      const permission = await speechModule.requestPermissionsAsync();
       if (!permission.granted) {
         setErrorMessage(describeSpeechError('not-allowed'));
         return;
       }
       // Continuous so a pause to think doesn't cut the student off
-      ExpoSpeechRecognitionModule.start({ lang: language, interimResults: true, continuous: true });
+      speechModule.start({ lang: language, interimResults: true, continuous: true });
     } catch (error) {
       console.warn('Could not start speech recognition', error);
       setErrorMessage(describeSpeechError('service-not-allowed'));
@@ -80,8 +100,11 @@ export function useSpeechToText() {
   }
 
   function stopListening() {
+    if (speechModule === null) {
+      return;
+    }
     try {
-      ExpoSpeechRecognitionModule.stop();
+      speechModule.stop();
     } catch (error) {
       console.warn('Could not stop speech recognition', error);
       setIsListening(false);

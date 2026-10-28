@@ -183,7 +183,7 @@ If the model fails, the app gets a **503 and nothing is saved**, so the student 
   - the next step, read aloud
   - the exam-style question, answered the same way and then graded
   - "Explain it again"
-- **Speech layer** (`speech/`): screens never use the speech libraries directly. `use-speech-to-text.ts` wraps `expo-speech-recognition`, `text-to-speech.ts` wraps `expo-speech`, and `transcript.ts` holds the pure rule for joining phrases.
+- **Speech layer** (`speech/`): screens never use the speech libraries directly. `use-speech-to-text.ts` wraps `expo-speech-recognition`, `text-to-speech.ts` wraps `expo-speech`, and `transcript.ts` holds the pure rule for joining phrases. `speech-module.ts` loads the recognition library **only if its native code is in the build**. Loading it without that code crashes the app, so builds without it (like Expo Go) get typing instead.
 
 ### Teacher experience
 
@@ -197,7 +197,7 @@ If the model fails, the app gets a **503 and nothing is saved**, so the student 
 
 > **PRIVACY: on the web, Chrome sends the audio to Google's servers to recognise it; Safari uses Apple's.** Study Buddy never receives or stores audio, but the browser vendor does process it. That is a GDPR consideration for minors: tell schools and families, and prefer on-device recognition in the native apps (the `requiresOnDeviceRecognition` option) before launch.
 
-**Where voice works:** Chrome and Safari on desktop, and Chrome on Android. It doesn't work in Firefox or Brave, or in Chrome on iPhone; those users get the typing box. **Expo Go can't run speech recognition**, because it's a native module. Phones need a development build (`npx expo run:ios|android`, or EAS).
+**Where voice works:** Chrome and Safari on desktop, and Chrome on Android. It doesn't work in Firefox or Brave, or in Chrome on iPhone; those users get the typing box. **In Expo Go, students type and Pip still speaks.** Expo Go doesn't include the speech recognition native code, so the app detects that and switches to typing. To talk on a phone, use a development build (`npx expo run:ios|android`, or `npx eas-cli@latest build --profile development`).
 
 **Token storage.** The access token is kept **in memory only**. The refresh token goes in the device keychain on iOS and Android (`expo-secure-store`). On web it goes in `sessionStorage`, which survives a reload but is cleared when the tab closes. That's safer than `localStorage`, but any script running on the page could still read it. Before a public web launch, move it to an `HttpOnly` cookie set by the backend.
 

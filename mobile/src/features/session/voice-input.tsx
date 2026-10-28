@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ApiError } from '@/api/client';
 import { Button } from '@/components/button';
@@ -10,6 +10,12 @@ import { colors, minimumTouchSize, spacing } from '@/theme';
 // Matches TURN_MAX_CHARACTERS in backend/app/schemas/study_sessions.py
 const MAX_CHARACTERS = 2000;
 const MICROPHONE_SIZE = 96;
+
+// Expo Go and browsers like Firefox can't recognise speech; tell students what they can do instead
+const NO_VOICE_NOTE =
+  Platform.OS === 'web'
+    ? "Voice isn't available in this browser. Use Chrome or Safari to talk, or type below."
+    : 'Voice needs the full Study Buddy app. For now, type below.';
 
 type VoiceInputProps = {
   language: SpeechLanguage;
@@ -76,11 +82,7 @@ export function VoiceInput({
 
   return (
     <View style={styles.container}>
-      {!speech.isAvailable ? (
-        <Text style={styles.note}>
-          Voice isn&apos;t available in this browser. Use Chrome or Safari to talk, or type below.
-        </Text>
-      ) : null}
+      {!speech.isAvailable ? <Text style={styles.note}>{NO_VOICE_NOTE}</Text> : null}
 
       {!typing ? (
         <View style={styles.microphoneArea}>
