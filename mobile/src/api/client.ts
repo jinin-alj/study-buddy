@@ -108,7 +108,7 @@ export class ApiClient {
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch {
-      throw new ApiError(0, "Can't reach Study Buddy. Check your connection and try again.");
+      throw new ApiError(0, "Can't reach Telmi. Check your connection and try again.");
     }
   }
 

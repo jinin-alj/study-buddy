@@ -15,7 +15,7 @@ const MICROPHONE_SIZE = 96;
 const NO_VOICE_NOTE =
   Platform.OS === 'web'
     ? "Voice isn't available in this browser. Use Chrome or Safari to talk, or type below."
-    : 'Voice needs the full Study Buddy app. For now, type below.';
+    : 'Voice needs the full Telmi app. For now, type below.';
 
 type VoiceInputProps = {
   language: SpeechLanguage;

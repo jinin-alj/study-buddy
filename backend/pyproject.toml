@@ -1,7 +1,7 @@
 [project]
-name = "study-buddy-backend"
+name = "telmi-backend"
 version = "0.1.0"
-description = "API for Study Buddy, where students explain topics from memory to an AI classmate."
+description = "API for Telmi, where students explain topics from memory to an AI classmate."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.162,<1",

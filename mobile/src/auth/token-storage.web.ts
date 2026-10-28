@@ -1,6 +1,6 @@
 // SecureStore has no web version. sessionStorage survives reloads but is cleared when the
 // tab closes, which limits how long a stolen token is useful compared with localStorage.
-const REFRESH_TOKEN_KEY = 'study_buddy.refresh_token';
+const REFRESH_TOKEN_KEY = 'telmi.refresh_token';
 
 /** Read the saved refresh token for this browser tab, or null. */
 export async function loadRefreshToken(): Promise<string | null> {

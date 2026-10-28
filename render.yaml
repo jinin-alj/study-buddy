@@ -2,7 +2,7 @@
 # Values marked sync: false are asked for once, when the Blueprint is first created.
 services:
   - type: web
-    name: study-buddy-api
+    name: telmi-api
     runtime: python
     plan: free
     # EU region, since the users are Spanish students and teachers

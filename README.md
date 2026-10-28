@@ -1,4 +1,4 @@
-# Study Buddy
+# Telmi
 
 Students explain a topic **out loud, from memory**, to an AI classmate who doesn't understand it yet. A separate, strict checker compares the explanation with the teacher's own material and shows the student what they covered, missed or got wrong. Teachers see how each student is doing in each subject, so they know where to help.
 
@@ -144,8 +144,8 @@ cloudflared tunnel --url http://localhost:8787
 ### 4. Web app on Vercel (once)
 
 1. **New project** from the repo. Set **Root Directory** to `mobile` and **Framework preset** to Other; the rest comes from `vercel.json`.
-2. **Settings → Environment Variables:** add `EXPO_PUBLIC_API_URL` set to the Render address, for example `https://study-buddy-api.onrender.com`. This tells the app where the API is, and it's built into the app, so redeploy after changing it.
-3. Deploy, then copy the Vercel address (for example `https://study-buddy.vercel.app`).
+2. **Settings → Environment Variables:** add `EXPO_PUBLIC_API_URL` set to the Render address, for example `https://telmi-api.onrender.com`. This tells the app where the API is, and it's built into the app, so redeploy after changing it.
+3. Deploy, then copy the Vercel address (for example `https://telmi.vercel.app`).
 4. Back on Render: set `CORS_ORIGINS` to that Vercel address and save. Render restarts the API with it.
 
 ### 5. When the tunnel address changes
@@ -279,7 +279,7 @@ If the model fails, the app gets a **503 and nothing is saved**, so the student 
   - **Students:** listed by name, never ranked. Each shows their latest result per unit ("4 of 6 key ideas") and the ideas still to explain.
 - **Role guards:** `_layout.tsx` nests `Stack.Protected`, so only students reach `session/[sessionId]` and only teachers reach `classroom/[classroomId]`. The API enforces the same rules; the guards just keep people off screens they can't use.
 
-> **PRIVACY: on the web, Chrome sends the audio to Google's servers to recognise it; Safari uses Apple's.** Study Buddy never receives or stores audio, but the browser vendor does process it. That is a GDPR consideration for minors: tell schools and families, and prefer on-device recognition in the native apps (the `requiresOnDeviceRecognition` option) before launch.
+> **PRIVACY: on the web, Chrome sends the audio to Google's servers to recognise it; Safari uses Apple's.** Telmi never receives or stores audio, but the browser vendor does process it. That is a GDPR consideration for minors: tell schools and families, and prefer on-device recognition in the native apps (the `requiresOnDeviceRecognition` option) before launch.
 
 **Where voice works:** Chrome and Safari on desktop, and Chrome on Android. It doesn't work in Firefox or Brave, or in Chrome on iPhone; those users get the typing box. **In Expo Go, students type and Pip still speaks.** Expo Go doesn't include the speech recognition native code, so the app detects that and switches to typing. To talk on a phone, use a development build (`npx expo run:ios|android`, or `npx eas-cli@latest build --profile development`).
 

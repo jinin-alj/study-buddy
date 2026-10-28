@@ -36,7 +36,7 @@ export default function SignInScreen() {
   return (
     <Screen>
       <Text accessibilityRole="header" style={styles.title}>
-        Study Buddy
+        Telmi
       </Text>
       <Text style={styles.subtitle}>Explain it from memory. Your buddy is the one learning.</Text>
 

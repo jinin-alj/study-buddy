@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 // Only the refresh token is stored; the access token lives in memory
-const REFRESH_TOKEN_KEY = 'study_buddy.refresh_token';
+const REFRESH_TOKEN_KEY = 'telmi.refresh_token';
 
 /** Read the saved refresh token from the device keychain, or null if none or unreadable. */
 export async function loadRefreshToken(): Promise<string | null> {
