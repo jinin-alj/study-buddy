@@ -46,12 +46,13 @@ class Settings(BaseSettings):
     ai_api_key: str | None = None
     ai_timeout_seconds: float = Field(default=60.0, gt=0)
     # A fast model keeps Pip's replies quick; grading uses a stronger one
-    ai_buddy_model: str = "llama-3.1-8b-instant"
+    ai_buddy_model: str = "openai/gpt-oss-20b"
     ai_checker_model: str = "openai/gpt-oss-120b"
-    # Groq's gpt-oss models accept a JSON schema; its Llama models only support plain JSON mode
+    # Groq's gpt-oss models accept a JSON schema; set false for models that only do plain JSON
     ai_checker_json_schema: bool = True
-    # Low effort keeps hidden reasoning short, which saves the free daily token budget
-    ai_checker_reasoning_effort: str | None = "low"
+    # Both gpt-oss models reason before answering; low effort keeps that short and saves the
+    # free daily token budget. Set it empty for models that do not reason.
+    ai_reasoning_effort: str | None = "low"
     # Free tiers count this cap against tokens per minute, so keep it modest
     ai_checker_max_tokens: int = Field(default=2048, gt=0)
 

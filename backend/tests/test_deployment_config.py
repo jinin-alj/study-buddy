@@ -84,7 +84,7 @@ def hosted_settings(**overrides: object) -> Settings:
         "ai_api_key": "groq-key",
     }
     values.update(overrides)
-    return Settings(**values)  # type: ignore[arg-type]
+    return Settings(_env_file=None, **values)  # type: ignore[arg-type]
 
 
 def test_hosted_ai_needs_a_key() -> None:
@@ -97,21 +97,26 @@ def test_hosted_ai_gives_pip_and_the_checker_their_own_models(
 ) -> None:
     monkeypatch.setattr("app.dependencies.get_settings", lambda: hosted_settings())
 
-    buddy = build_chat_model("llama-3.1-8b-instant", for_grading=False)
+    buddy = build_chat_model("openai/gpt-oss-20b", for_grading=False)
     checker = build_chat_model("openai/gpt-oss-120b", for_grading=True)
 
     assert isinstance(buddy, HostedChatModel)
     assert isinstance(checker, HostedChatModel)
-    assert buddy.model_name == "llama-3.1-8b-instant"
+    assert buddy.model_name == "openai/gpt-oss-20b"
     assert buddy.json_schema_supported is False
-    assert buddy.reasoning_effort is None
+    assert buddy.reasoning_effort == "low"
     assert checker.model_name == "openai/gpt-oss-120b"
     assert checker.json_schema_supported is True
     assert checker.reasoning_effort == "low"
 
 
 def test_local_development_still_uses_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
-    local = Settings(database_url="sqlite+pysqlite:///:memory:", jwt_secret="x" * 32)
+    local = Settings(
+        database_url="sqlite+pysqlite:///:memory:",
+        jwt_secret="x" * 32,
+        ai_provider="ollama",
+        _env_file=None,
+    )
     monkeypatch.setattr("app.dependencies.get_settings", lambda: local)
 
     assert isinstance(build_chat_model("any", for_grading=True), OllamaChatModel)

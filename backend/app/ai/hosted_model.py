@@ -26,6 +26,15 @@ def add_schema_instruction(
     return copied
 
 
+def read_error_message(response: httpx.Response) -> str:
+    """The provider's own explanation, such as "model not found", trimmed for the log."""
+    try:
+        message = response.json()["error"]["message"]
+    except (KeyError, TypeError, ValueError):
+        return "no details"
+    return str(message)[:200]
+
+
 class HostedChatModel(ChatModel):
     """Talks to any OpenAI-compatible chat API, such as Groq. Always on, unlike a laptop."""
 
@@ -87,7 +96,9 @@ class HostedChatModel(ChatModel):
         if response.status_code == RATE_LIMITED:
             raise ChatModelError("The AI service is busy (free-tier rate limit)")
         if response.status_code >= 400:
-            raise ChatModelError(f"AI service error {response.status_code}")
+            raise ChatModelError(
+                f"AI service error {response.status_code}: {read_error_message(response)}"
+            )
 
         try:
             reply_text = response.json()["choices"][0]["message"]["content"]

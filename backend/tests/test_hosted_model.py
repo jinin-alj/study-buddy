@@ -132,3 +132,13 @@ def test_blank_reply_is_a_model_error() -> None:
 
     with pytest.raises(ChatModelError):
         model.complete(MESSAGES, temperature=0.7)
+
+
+def test_error_message_from_the_provider_is_kept_for_the_log() -> None:
+    def missing_model(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"error": {"message": "model not found"}})
+
+    model, _sent = model_with(missing_model)
+
+    with pytest.raises(ChatModelError, match="404: model not found"):
+        model.complete(MESSAGES, temperature=0.7)

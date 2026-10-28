@@ -85,7 +85,7 @@ Everything runs on free tiers and stays on without anyone's laptop.
 ```
 Phone / laptop (PWA) -> Vercel (web app)
                      -> Render, Frankfurt (API) -> Neon (database)
-                                                -> Groq (AI: Llama 3.1 8B for Pip, gpt-oss-120b for grading)
+                                                -> Groq (AI: gpt-oss-20b for Pip, gpt-oss-120b for grading)
 ```
 
 > **TEACHERS ONLY until a school signs a data processing agreement.** Groq is a US service. Anyone with the link can create an account.
@@ -105,7 +105,7 @@ Phone / laptop (PWA) -> Vercel (web app)
 
 Render only deploys `main` after CI passes, and runs database migrations on every start. Supabase also works as the database: use its **Session pooler** string (port 5432). Free Supabase projects pause after a week without use.
 
-**Other AI providers:** any OpenAI-compatible API works through `AI_BASE_URL`, `AI_BUDDY_MODEL` and `AI_CHECKER_MODEL`. If the checker model doesn't support JSON schemas, set `AI_CHECKER_JSON_SCHEMA=false`; for non-reasoning models, set `AI_CHECKER_REASONING_EFFORT=` to empty.
+**Other AI providers:** any OpenAI-compatible API works through `AI_BASE_URL`, `AI_BUDDY_MODEL` and `AI_CHECKER_MODEL`. If the checker model doesn't support JSON schemas, set `AI_CHECKER_JSON_SCHEMA=false`; for models that don't reason, set `AI_REASONING_EFFORT=` to empty.
 
 **Running the AI on a laptop instead:** `backend/gateway/ai_gateway.py` puts a locked-down gateway in front of a local Ollama. It accepts only chat requests with the key in `GATEWAY_API_KEY`. Expose it with `cloudflared tunnel --url http://localhost:8787`, then set `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL` (the tunnel address) and `OLLAMA_API_KEY` on Render. The laptop has to stay on.
 

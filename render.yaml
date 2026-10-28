@@ -24,7 +24,7 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         sync: false
-      # Always-on AI on Groq: a fast model for Pip, a stronger one for grading
+      # Always-on AI on Groq: gpt-oss-20b for Pip, gpt-oss-120b for grading
       - key: AI_PROVIDER
         value: hosted
       - key: AI_API_KEY

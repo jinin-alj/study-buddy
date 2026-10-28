@@ -69,8 +69,8 @@ TeacherUser = Annotated[User, Depends(require_teacher)]
 StudentUser = Annotated[User, Depends(require_student)]
 
 
-# Pip says one to three sentences, so a small cap keeps replies short and fast
-BUDDY_MAX_TOKENS = 300
+# Pip says one to three sentences; the cap also covers the model's short hidden reasoning
+BUDDY_MAX_TOKENS = 800
 
 
 def build_chat_model(model_name: str, for_grading: bool) -> ChatModel:
@@ -80,11 +80,9 @@ def build_chat_model(model_name: str, for_grading: bool) -> ChatModel:
         if for_grading:
             max_tokens = settings.ai_checker_max_tokens
             json_schema_supported = settings.ai_checker_json_schema
-            reasoning_effort = settings.ai_checker_reasoning_effort or None
         else:
             max_tokens = BUDDY_MAX_TOKENS
             json_schema_supported = False
-            reasoning_effort = None
         return HostedChatModel(
             base_url=settings.ai_base_url,
             api_key=settings.ai_api_key or "",
@@ -92,7 +90,7 @@ def build_chat_model(model_name: str, for_grading: bool) -> ChatModel:
             timeout_seconds=settings.ai_timeout_seconds,
             max_completion_tokens=max_tokens,
             json_schema_supported=json_schema_supported,
-            reasoning_effort=reasoning_effort,
+            reasoning_effort=settings.ai_reasoning_effort or None,
         )
 
     # Locally, Pip and the checker share the one Ollama model
