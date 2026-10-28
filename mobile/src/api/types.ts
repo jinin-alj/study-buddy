@@ -22,3 +22,80 @@ export type RegisterForm = {
   password: string;
   role: UserRole;
 };
+
+export type Classroom = {
+  id: string;
+  name: string;
+  subject: string;
+  join_code: string;
+};
+
+export type Speaker = 'buddy' | 'student';
+
+export type Turn = {
+  position: number;
+  speaker: Speaker;
+  text: string;
+};
+
+export type KeyIdea = {
+  idea: string;
+  status: 'covered' | 'missing';
+};
+
+export type Misconception = {
+  student_said: string;
+  correction: string;
+  idea_number: number | null;
+};
+
+export type CheckerFeedback = {
+  key_ideas: KeyIdea[];
+  misconceptions: Misconception[];
+  application_question: string;
+  next_step: string;
+};
+
+export type ApplicationResult = {
+  verdict: 'correct' | 'partly_correct' | 'incorrect';
+  explanation: string;
+};
+
+export type StudySession = {
+  id: string;
+  unit_id: string;
+  unit_title: string;
+  status: 'active' | 'completed';
+  started_at: string;
+  ends_at: string;
+  completed_at: string | null;
+  student_turns_left: number;
+  turns: Turn[];
+  coverage_percent: number | null;
+  feedback: CheckerFeedback | null;
+  application_answer: string | null;
+  application_result: ApplicationResult | null;
+};
+
+export type Mascot = {
+  level: number;
+  understood_ideas: number;
+  ideas_to_next_level: number;
+};
+
+export type UnitProgress = {
+  unit_id: string;
+  title: string;
+  sessions_completed: number;
+  latest_coverage_percent: number | null;
+  best_coverage_percent: number | null;
+  ideas_understood: number;
+  total_ideas: number | null;
+  still_missing: string[];
+  next_step: string | null;
+};
+
+export type StudentProgress = {
+  mascot: Mascot;
+  classrooms: { classroom: Classroom; units: UnitProgress[] }[];
+};
