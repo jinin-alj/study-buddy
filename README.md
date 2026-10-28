@@ -6,7 +6,7 @@ Students explain a topic **out loud, from memory**, to an AI classmate who doesn
 
 ## Status
 
-MVP in progress. Done so far: repository tooling and CI, backend accounts (sign-up, login, token refresh), backend classes, units and study sessions with the buddy and checker, and the backend teacher dashboard and student progress. Features land on the branches listed under "Roadmap".
+MVP in progress. Done so far: repository tooling and CI, backend accounts (sign-up, login, token refresh), backend classes, units and study sessions with the buddy and checker, the backend teacher dashboard and student progress, and mobile sign-up and sign-in. Features land on the branches listed under "Roadmap".
 
 ## Repository layout
 
@@ -49,7 +49,7 @@ Changing a model? Generate a migration, **read it**, then apply it:
 
 > Alembic does not drop Postgres enum types on downgrade. Add the drop by hand, as in the users migration.
 
-Mobile (in another terminal):
+Mobile (in another terminal). In the Claude desktop app, `.claude/launch.json` starts both servers from the browser pane.
 
 ```bash
 cd mobile
@@ -147,6 +147,22 @@ Anything a user isn't allowed to see answers **404, not 403**, so outsiders can'
 - `transcript.py`: student text is escaped and wrapped in `<student>` tags, so it can't close the tags and slip in instructions.
 
 If the model fails, the app gets a **503 and nothing is saved**, so the student can simply retry.
+
+### Mobile app (`mobile/src/`)
+
+| Path | What it is |
+| --- | --- |
+| `app/` | Screens (Expo Router). `_layout.tsx` uses `Stack.Protected`, so signed-out users only reach sign-in and sign-up, and signed-in users only reach the app. |
+| `api/client.ts` | JSON client: adds the access token, refreshes it once on a 401 and retries. Parallel 401s share one refresh. |
+| `auth/auth-context.tsx` | Session state, sign-in, sign-up and sign-out. Restores a saved session on launch while the splash screen stays up. |
+| `auth/token-storage.ts` / `.web.ts` | Where the refresh token lives (see below). |
+| `auth/validation.ts` | The same username, password and nickname rules as the backend, so errors show before sending. |
+| `components/` | Accessible text field, button, role picker and page wrapper. |
+| `theme.ts` | Colours that meet WCAG 2.1 AA contrast, and the 44-point minimum touch size. |
+
+**Token storage.** The access token is kept **in memory only**. The refresh token goes in the device keychain on iOS and Android (`expo-secure-store`). On web it goes in `sessionStorage`, which survives a reload but is cleared when the tab closes. That's safer than `localStorage`, but any script running on the page could still read it. Before a public web launch, move it to an `HttpOnly` cookie set by the backend.
+
+To point the app at another backend, set `EXPO_PUBLIC_API_URL` (default `http://localhost:8000`).
 
 ## Inputs and outputs
 

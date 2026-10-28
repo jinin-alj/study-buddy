@@ -1,33 +1,48 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+
+import { useAuth } from '@/auth/auth-context';
+import { Button } from '@/components/button';
+import { Screen } from '@/components/screen';
+import { colors, spacing } from '@/theme';
+
+// TODO: replace these placeholders with the study session and teacher dashboard screens
+const HOME_MESSAGE = {
+  student: 'Join a class and explain your first unit to Pip.',
+  teacher: 'Create a class, add a unit and share the join code with your students.',
+};
 
 export default function HomeScreen() {
+  const { user, signOut } = useAuth();
+  if (user === null) {
+    return null;
+  }
+
   return (
-    <View style={styles.container}>
+    <Screen>
       <Text accessibilityRole="header" style={styles.title}>
-        Study Buddy
+        Hi, {user.display_name}
       </Text>
-      <Text style={styles.subtitle}>Explain it from memory. Your buddy is the one learning.</Text>
-    </View>
+      <Text style={styles.role}>{user.role === 'teacher' ? 'Teacher' : 'Student'} account</Text>
+      <Text style={styles.message}>{HOME_MESSAGE[user.role]}</Text>
+      <Button label="Sign out" variant="secondary" onPress={signOut} />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#FFFFFF',
-  },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
   },
-  subtitle: {
-    marginTop: 8,
+  role: {
     fontSize: 16,
-    color: '#374151',
-    textAlign: 'center',
+    color: colors.mutedText,
+    marginTop: 4,
+  },
+  message: {
+    fontSize: 18,
+    color: colors.text,
+    marginVertical: spacing.large,
   },
 });
