@@ -99,3 +99,56 @@ export type StudentProgress = {
   mascot: Mascot;
   classrooms: { classroom: Classroom; units: UnitProgress[] }[];
 };
+
+export type Unit = {
+  id: string;
+  classroom_id: string;
+  title: string;
+  created_at: string;
+};
+
+export type MisconceptionExample = {
+  student_said: string;
+  correction: string;
+};
+
+export type IdeaSummary = {
+  idea_number: number;
+  idea: string;
+  students_covered: number;
+  students_missing: number;
+  misconception_count: number;
+  examples: MisconceptionExample[];
+};
+
+export type UnitSummary = {
+  unit_id: string;
+  title: string;
+  students_attempted: number;
+  average_coverage_percent: number | null;
+  ideas: IdeaSummary[] | null;
+  other_misconceptions: MisconceptionExample[];
+};
+
+export type StudentUnitResult = {
+  unit_id: string;
+  sessions_completed: number;
+  latest_coverage_percent: number | null;
+  last_completed_at: string | null;
+  missing_ideas: string[];
+};
+
+export type StudentSummary = {
+  student_id: string;
+  display_name: string;
+  username: string;
+  average_coverage_percent: number | null;
+  units: StudentUnitResult[];
+};
+
+export type ClassroomDashboard = {
+  classroom: Classroom;
+  student_count: number;
+  units: UnitSummary[];
+  students: StudentSummary[];
+};

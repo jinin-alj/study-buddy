@@ -8,8 +8,10 @@ import { AuthProvider, useAuth } from '@/auth/auth-context';
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
   const signedIn = status === 'signedIn';
+  const isStudent = user?.role === 'student';
+  const isTeacher = user?.role === 'teacher';
 
   useEffect(() => {
     if (status !== 'loading') {
@@ -25,7 +27,13 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={signedIn} redirectTo="/sign-in">
         <Stack.Screen name="index" />
-        <Stack.Screen name="session/[sessionId]" />
+        {/* The API enforces these roles too; the guards just keep people off screens they can't use */}
+        <Stack.Protected guard={isStudent} redirectTo="/">
+          <Stack.Screen name="session/[sessionId]" />
+        </Stack.Protected>
+        <Stack.Protected guard={isTeacher} redirectTo="/">
+          <Stack.Screen name="classroom/[classroomId]" />
+        </Stack.Protected>
       </Stack.Protected>
       <Stack.Protected guard={!signedIn} redirectTo="/">
         <Stack.Screen name="sign-in" />

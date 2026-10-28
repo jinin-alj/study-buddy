@@ -10,7 +10,7 @@ type TextFieldProps = TextInputProps & {
 };
 
 /** A labelled text input that announces its hint and error to screen readers. */
-export function TextField({ label, hint, error, ...inputProps }: TextFieldProps) {
+export function TextField({ label, hint, error, style, ...inputProps }: TextFieldProps) {
   const description = [hint, error].filter(Boolean).join('. ');
 
   return (
@@ -20,8 +20,9 @@ export function TextField({ label, hint, error, ...inputProps }: TextFieldProps)
         accessibilityLabel={label}
         accessibilityHint={description === '' ? undefined : description}
         placeholderTextColor={colors.mutedText}
-        style={[styles.input, error ? styles.inputWithError : null]}
         {...inputProps}
+        // Callers' styles add to the base look instead of replacing it
+        style={[styles.input, error ? styles.inputWithError : null, style]}
       />
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
       {error ? (

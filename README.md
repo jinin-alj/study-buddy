@@ -6,7 +6,12 @@ Students explain a topic **out loud, from memory**, to an AI classmate who doesn
 
 ## Status
 
-MVP in progress. Done so far: repository tooling and CI, backend accounts (sign-up, login, token refresh), backend classes, units and study sessions with the buddy and checker, the backend teacher dashboard and student progress, mobile sign-up and sign-in, and the mobile student experience (join a class, voice session with Pip, results, mascot). Features land on the branches listed under "Roadmap".
+MVP feature-complete. Done:
+- repository tooling and CI
+- backend: accounts, classes and units, study sessions with the buddy and checker, the teacher dashboard and student progress
+- mobile: sign-up and sign-in; the student experience (join a class, voice session with Pip, results, mascot); the teacher side (create classes, add units, class dashboard)
+
+Each feature has its own branch, listed under "Roadmap".
 
 ## Repository layout
 
@@ -179,6 +184,16 @@ If the model fails, the app gets a **503 and nothing is saved**, so the student 
   - "Explain it again"
 - **Speech layer** (`speech/`): screens never use the speech libraries directly. `use-speech-to-text.ts` wraps `expo-speech-recognition`, `text-to-speech.ts` wraps `expo-speech`, and `transcript.ts` holds the pure rule for joining phrases.
 
+### Teacher experience
+
+- **Home** (`features/teacher/teacher-home.tsx`): the teacher's classes, each with its join code in large spaced letters, and a "Create a class" form. Creating a class opens it straight away.
+- **Class screen** (`app/classroom/[classroomId].tsx`):
+  - the join code and number of students
+  - a reminder that results come from AI and are not grades
+  - **Units:** each card shows how many students explained it and the average share of key ideas. "Show key ideas" lists each idea with a bar ("3 of 8 students explained this"), its common mistakes, and up to three anonymous examples. "Add a unit" opens a form for a title and the teacher's material, with a live character count (50–12,000).
+  - **Students:** listed by name, never ranked. Each shows their latest result per unit ("4 of 6 key ideas") and the ideas still to explain.
+- **Role guards:** `_layout.tsx` nests `Stack.Protected`, so only students reach `session/[sessionId]` and only teachers reach `classroom/[classroomId]`. The API enforces the same rules; the guards just keep people off screens they can't use.
+
 > **PRIVACY: on the web, Chrome sends the audio to Google's servers to recognise it; Safari uses Apple's.** Study Buddy never receives or stores audio, but the browser vendor does process it. That is a GDPR consideration for minors: tell schools and families, and prefer on-device recognition in the native apps (the `requiresOnDeviceRecognition` option) before launch.
 
 **Where voice works:** Chrome and Safari on desktop, and Chrome on Android. It doesn't work in Firefox or Brave, or in Chrome on iPhone; those users get the typing box. **Expo Go can't run speech recognition**, because it's a native module. Phones need a development build (`npx expo run:ios|android`, or EAS).
@@ -206,7 +221,7 @@ To point the app at another backend, set `EXPO_PUBLIC_API_URL` (default `http://
 - The first model call after Ollama starts takes about 15 seconds while the model loads. After that, buddy replies take about 1 second and the checker about 9 seconds on an M-series Mac.
 - Model calls block a worker thread while they wait. That's fine for the MVP; at scale, run more workers or move these routes to async.
 - Voice has been tested only by its code paths and unit tests; nobody has yet spoken into it end to end. Phones need an Expo development build.
-- **The checker sometimes lists the buddy's planted mistake under "You said".** Students could be blamed for words they never said. A backend guard that drops misconceptions not found in the student's own turns is the recommended next fix.
+- **The checker sometimes lists the buddy's planted mistake under "You said".** Students could be blamed for words they never said, and the same text reaches the teacher dashboard as an "example" of a class mistake. A backend guard that drops misconceptions not found in the student's own turns is the recommended next fix.
 - **No login rate limiting yet.** Add it at the gateway (or with Redis) before launch; see the `TODO` in `app/routers/auth.py`.
 - **No password reset**, because accounts have no email. A teacher-led reset is a possible follow-up.
 - **Tokens can't be revoked early.** A stolen refresh token works until it expires. A server-side denylist would fix this if needed.
