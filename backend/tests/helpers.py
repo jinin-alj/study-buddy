@@ -1,4 +1,9 @@
+import json
+
+import httpx
 from fastapi.testclient import TestClient
+
+from tests.fakes import FakeChatModel
 
 TEST_PASSWORD = "correct-horse-battery"
 
@@ -48,3 +53,53 @@ def enrolled_student_with_unit(client: TestClient) -> tuple[dict[str, str], str]
     _classroom_id, join_code, unit_id = create_class_with_unit(client, teacher)
     client.post("/classrooms/join", json={"join_code": join_code}, headers=student)
     return student, unit_id
+
+
+KEY_IDEAS = [
+    "Photosynthesis happens in the chloroplasts",
+    "Plants use carbon dioxide, water and sunlight to make glucose",
+    "Oxygen is released as a by-product",
+]
+KEY_IDEAS_REPLY = json.dumps({"key_ideas": KEY_IDEAS})
+
+APPLICATION_REPLY = json.dumps(
+    {"verdict": "partly_correct", "explanation": "Right idea about light; also mention glucose."}
+)
+
+
+def checker_reply(covered_numbers: list[int], misconception_idea: int | None = 2) -> str:
+    """A checker verdict covering these 1-based ideas, with one misconception."""
+    idea_results = []
+    for idea_number in range(1, len(KEY_IDEAS) + 1):
+        status = "covered" if idea_number in covered_numbers else "missing"
+        idea_results.append({"idea_number": idea_number, "status": status})
+    return json.dumps(
+        {
+            "idea_results": idea_results,
+            "misconceptions": [
+                {
+                    "student_said": "Plants get their food from the soil",
+                    "correction": "Plants make glucose using energy from sunlight",
+                    "idea_number": misconception_idea,
+                }
+            ],
+            "application_question": "Why does a plant kept in the dark stop growing?",
+            "next_step": "Explain what happens to the oxygen made in photosynthesis.",
+        }
+    )
+
+
+def finish_session(
+    client: TestClient,
+    fake_chat_model: FakeChatModel,
+    student: dict[str, str],
+    session_id: object,
+    verdict: str,
+    first_on_unit: bool = True,
+) -> httpx.Response:
+    """Finish a session; the first finish on a unit also extracts its key ideas."""
+    if first_on_unit:
+        fake_chat_model.queue_reply(KEY_IDEAS_REPLY)
+    fake_chat_model.queue_reply(verdict)
+    response: httpx.Response = client.post(f"/sessions/{session_id}/finish", headers=student)
+    return response

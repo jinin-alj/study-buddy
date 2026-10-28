@@ -10,6 +10,7 @@ from app.ai.checker import (
     CheckerFeedback,
     calculate_coverage_percent,
     check_explanation,
+    extract_key_ideas,
     grade_application_answer,
 )
 from app.config import Settings
@@ -121,6 +122,21 @@ def add_student_turn(
     return study_session
 
 
+def ensure_key_ideas(db: Session, chat_model: ChatModel, unit: Unit) -> list[str]:
+    """Return the unit's fixed key ideas, extracting them the first time any session finishes."""
+    if unit.key_ideas is not None:
+        return unit.key_ideas
+
+    # Lock the row so two students finishing at once aren't graded on different lists
+    locked_unit = db.get(Unit, unit.id, with_for_update=True, populate_existing=True)
+    if locked_unit is None:
+        raise NotFoundError("Unit not found")
+    if locked_unit.key_ideas is None:
+        locked_unit.key_ideas = extract_key_ideas(chat_model, locked_unit)
+        db.commit()
+    return list(locked_unit.key_ideas or [])
+
+
 def finish_session(db: Session, chat_model: ChatModel, study_session: StudySession) -> StudySession:
     """Run the checker over the whole conversation and close the session."""
     if study_session.status != SessionStatus.ACTIVE:
@@ -131,7 +147,8 @@ def finish_session(db: Session, chat_model: ChatModel, study_session: StudySessi
         raise ConflictError("Explain something first, then finish")
 
     unit = get_unit(db, study_session)
-    feedback = check_explanation(chat_model, unit, turns)
+    key_ideas = ensure_key_ideas(db, chat_model, unit)
+    feedback = check_explanation(chat_model, unit, key_ideas, turns)
 
     study_session.feedback = feedback.model_dump(mode="json")
     study_session.coverage_percent = calculate_coverage_percent(feedback)

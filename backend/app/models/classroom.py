@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -50,4 +50,6 @@ class Unit(Base):
     )
     title: Mapped[str] = mapped_column(String(120))
     material: Mapped[str] = mapped_column(Text)
+    # Extracted once, on the first finished session, so every student is graded on the same list
+    key_ideas: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

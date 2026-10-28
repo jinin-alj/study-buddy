@@ -1,4 +1,3 @@
-import json
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -6,34 +5,23 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.ai.checker import CheckerFeedback, calculate_coverage_percent
+from app.ai.checker import CheckerVerdict, build_feedback, calculate_coverage_percent
 from app.ai.transcript import wrap_student_text
 from app.config import Settings, get_settings
 from app.models import SessionTurn, StudySession
 from tests.fakes import FakeChatModel
-from tests.helpers import MATERIAL, enrolled_student_with_unit, sign_up_as
-
-CHECKER_REPLY = json.dumps(
-    {
-        "key_ideas": [
-            {"idea": "Happens in chloroplasts", "status": "covered"},
-            {"idea": "Uses carbon dioxide, water and sunlight", "status": "covered"},
-            {"idea": "Releases oxygen", "status": "missing"},
-        ],
-        "misconceptions": [
-            {
-                "student_said": "Plants get their food from the soil",
-                "correction": "Plants make glucose using energy from sunlight",
-            }
-        ],
-        "application_question": "Why does a plant kept in the dark stop growing?",
-        "next_step": "Explain what happens to the oxygen made in photosynthesis.",
-    }
+from tests.helpers import (
+    APPLICATION_REPLY,
+    KEY_IDEAS,
+    KEY_IDEAS_REPLY,
+    MATERIAL,
+    checker_reply,
+    enrolled_student_with_unit,
+    finish_session,
+    sign_up_as,
 )
 
-APPLICATION_REPLY = json.dumps(
-    {"verdict": "partly_correct", "explanation": "Right idea about light; also mention glucose."}
-)
+CHECKER_REPLY = checker_reply([1, 2])
 
 
 def start(client: TestClient, student: dict[str, str], unit_id: str) -> dict[str, object]:
@@ -202,19 +190,42 @@ def test_finish_returns_gap_map_and_closes_session(
     session = start(client, student, unit_id)
     fake_chat_model.queue_reply("Why sunlight?")
     say(client, student, session["id"], "Plants make food in chloroplasts from soil.")
-    fake_chat_model.queue_reply(CHECKER_REPLY)
 
-    response = client.post(f"/sessions/{session['id']}/finish", headers=student)
+    response = finish_session(client, fake_chat_model, student, session["id"], CHECKER_REPLY)
 
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "completed"
     assert body["coverage_percent"] == 67
-    assert body["feedback"]["misconceptions"][0]["student_said"].startswith("Plants get")
+    assert [idea["idea"] for idea in body["feedback"]["key_ideas"]] == KEY_IDEAS
+    assert body["feedback"]["misconceptions"][0]["idea_number"] == 2
     assert body["feedback"]["next_step"] != ""
     checker_request = fake_chat_model.requests[-1]
     assert checker_request["temperature"] == 0.0
     assert checker_request["schema"] is not None
+    assert (
+        "1. Photosynthesis happens in the chloroplasts" in checker_request["messages"][0]["content"]
+    )
+
+
+def test_key_ideas_are_extracted_once_per_unit(
+    client: TestClient, fake_chat_model: FakeChatModel
+) -> None:
+    student, unit_id = enrolled_student_with_unit(client)
+    for attempt in range(2):
+        session = start(client, student, unit_id)
+        fake_chat_model.queue_reply("Why?")
+        say(client, student, session["id"], "Plants make food.")
+        response = finish_session(
+            client, fake_chat_model, student, session["id"], CHECKER_REPLY, attempt == 0
+        )
+        assert response.status_code == 200
+
+    extraction_requests = 0
+    for request in fake_chat_model.requests:
+        if "most important ideas" in request["messages"][0]["content"]:
+            extraction_requests += 1
+    assert extraction_requests == 1
 
 
 def test_finished_session_rejects_turns_and_second_finish(
@@ -224,8 +235,7 @@ def test_finished_session_rejects_turns_and_second_finish(
     session = start(client, student, unit_id)
     fake_chat_model.queue_reply("Why?")
     say(client, student, session["id"], "Plants make food.")
-    fake_chat_model.queue_reply(CHECKER_REPLY)
-    client.post(f"/sessions/{session['id']}/finish", headers=student)
+    finish_session(client, fake_chat_model, student, session["id"], CHECKER_REPLY)
 
     assert say(client, student, session["id"], "One more thing").status_code == 409
     assert client.post(f"/sessions/{session['id']}/finish", headers=student).status_code == 409
@@ -238,6 +248,7 @@ def test_checker_retries_once_after_malformed_output(
     session = start(client, student, unit_id)
     fake_chat_model.queue_reply("Why?")
     say(client, student, session["id"], "Plants make food.")
+    fake_chat_model.queue_reply(KEY_IDEAS_REPLY)
     fake_chat_model.queue_reply("{not json")
     fake_chat_model.queue_reply(CHECKER_REPLY)
 
@@ -253,8 +264,9 @@ def test_checker_failing_twice_keeps_session_open(
     session = start(client, student, unit_id)
     fake_chat_model.queue_reply("Why?")
     say(client, student, session["id"], "Plants make food.")
+    fake_chat_model.queue_reply(KEY_IDEAS_REPLY)
     fake_chat_model.queue_reply("{not json")
-    fake_chat_model.queue_reply('{"key_ideas": []}')
+    fake_chat_model.queue_reply('{"idea_results": []}')
 
     response = client.post(f"/sessions/{session['id']}/finish", headers=student)
 
@@ -272,8 +284,7 @@ def test_application_answer_is_graded_once(
     early = client.post(
         f"/sessions/{session['id']}/application-answer", json={"text": "No light"}, headers=student
     )
-    fake_chat_model.queue_reply(CHECKER_REPLY)
-    client.post(f"/sessions/{session['id']}/finish", headers=student)
+    finish_session(client, fake_chat_model, student, session["id"], CHECKER_REPLY)
     fake_chat_model.queue_reply(APPLICATION_REPLY)
 
     answer = client.post(
@@ -293,6 +304,26 @@ def test_application_answer_is_graded_once(
 
 
 def test_coverage_counts_only_covered_ideas() -> None:
-    feedback = CheckerFeedback.model_validate_json(CHECKER_REPLY)
+    feedback = build_feedback(CheckerVerdict.model_validate_json(CHECKER_REPLY), KEY_IDEAS)
 
     assert calculate_coverage_percent(feedback) == 67
+
+
+def test_skipped_or_invented_idea_numbers_count_as_missing() -> None:
+    verdict = CheckerVerdict.model_validate(
+        {
+            "idea_results": [
+                {"idea_number": 1, "status": "covered"},
+                {"idea_number": 9, "status": "covered"},
+            ],
+            "misconceptions": [{"student_said": "Wrong", "correction": "Right", "idea_number": 7}],
+            "application_question": "Question?",
+            "next_step": "Next.",
+        }
+    )
+
+    feedback = build_feedback(verdict, KEY_IDEAS)
+
+    statuses = [idea.status for idea in feedback.key_ideas]
+    assert statuses == ["covered", "missing", "missing"]
+    assert feedback.misconceptions[0].idea_number is None
