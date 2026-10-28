@@ -80,93 +80,42 @@ TEST_DATABASE_URL=postgresql+psycopg://study_buddy:<password>@localhost:5432/stu
 
 ## Deploying (free setup)
 
-Everything runs on free tiers. The only part on the team's laptop is the AI model, because Ollama can't run on free hosting.
+Everything runs on free tiers and stays on without anyone's laptop.
 
 ```
-Browser / phone (PWA)  ->  Vercel (web app)
-                       ->  Render, Frankfurt (API, free plan)  ->  Neon or Supabase (Postgres)
-                                                              ->  Cloudflare tunnel  ->  laptop: AI gateway  ->  Ollama
+Phone / laptop (PWA) -> Vercel (web app)
+                     -> Render, Frankfurt (API) -> Neon (database)
+                                                -> Groq (AI: gpt-oss-20b for Pip, gpt-oss-120b for grading)
 ```
 
-> **TEACHERS ONLY until a school signs a data processing agreement.** Anyone with the link can create an account. Share it only with teachers who have had a demo.
+> **TEACHERS ONLY until a school signs a data processing agreement.** Groq is a US service. Anyone with the link can create an account.
 
-**What free costs you**
-- **The API sleeps after 15 minutes idle** and takes up to a minute to wake. It never costs money. The app pings it when it opens and shows "Waking up the server" if signing in is slow.
-- **Pip and the checker only work while the laptop is on**, with Ollama, the gateway and the tunnel running. Otherwise students see "Your buddy can't answer right now".
-- **The tunnel address changes every time the tunnel restarts.** Then you update one setting on Render (step 5).
-- **The laptop handles only a few sessions at once.** That's enough for a teacher preview.
+**Free-tier limits**
+- **The API sleeps after 15 minutes idle** and takes up to a minute to wake. The app pings it on open and says "Waking up the server" if signing in is slow.
+- **Grading has a daily token budget** (about 200K tokens a day on Groq's free tier), which is roughly 15–20 graded sessions a day. When it runs out, students see "Your buddy can't answer right now" and can finish the session later.
 
-### 1. Database (once)
+### Steps
 
-**Neon (recommended):** create a free project in the **Frankfurt / AWS eu-central-1** region, then copy the connection string (`postgresql://…?sslmode=require`). Neon never pauses; it wakes in a few seconds on the first query.
+1. **Database:** on neon.com, create a free project in **Frankfurt** and copy the connection string.
+2. **AI key:** on console.groq.com, create an API key. Under **Data Controls**, turn on **Zero Data Retention**.
+3. **Backend:** on render.com, choose **New → Blueprint** and pick this repo. Fill in `DATABASE_URL` (from Neon) and `AI_API_KEY` (from Groq), and leave `CORS_ORIGINS` empty for now. Check that `https://telmi-api.onrender.com/health` shows `{"status":"ok"}`.
+4. **App:** on vercel.com, create a new project from this repo with **Root Directory** `mobile`, **Framework** Other, and the environment variable `EXPO_PUBLIC_API_URL` set to `https://telmi-api.onrender.com`. Deploy.
+5. **Connect:** on Render, set `CORS_ORIGINS` to the Vercel address and save.
+6. **Install:** open the Vercel address on a phone. On iPhone, use Share → Add to Home Screen; on Android, use Install app.
 
-**Supabase (also works):** create a free project in an EU region. Copy the **Session pooler** connection string, port `5432`, username `postgres.<project-ref>`. The direct address is IPv6-only and Render can't reach it. Free Supabase projects pause after a week without use and must be unpaused in the dashboard.
+Render only deploys `main` after CI passes, and runs database migrations on every start. Supabase also works as the database: use its **Session pooler** string (port 5432). Free Supabase projects pause after a week without use.
 
-Paste the string exactly as shown; the backend converts it to the driver it needs.
+**Other AI providers:** any OpenAI-compatible API works through `AI_BASE_URL`, `AI_BUDDY_MODEL` and `AI_CHECKER_MODEL`. If the checker model doesn't support JSON schemas, set `AI_CHECKER_JSON_SCHEMA=false`; for models that don't reason, set `AI_REASONING_EFFORT=` to empty.
 
-### 2. AI on the laptop (every time you start a session of testing)
+**Running the AI on a laptop instead:** `backend/gateway/ai_gateway.py` puts a locked-down gateway in front of a local Ollama. It accepts only chat requests with the key in `GATEWAY_API_KEY`. Expose it with `cloudflared tunnel --url http://localhost:8787`, then set `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL` (the tunnel address) and `OLLAMA_API_KEY` on Render. The laptop has to stay on.
 
-Do this once to create the shared key, and keep it secret:
-
-```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(40))"
-```
-
-Put the output in the repo's `.env` as `GATEWAY_API_KEY=…`. You'll paste the same value into Render as `OLLAMA_API_KEY`.
-
-Then run these three, each in its own terminal, and keep them running:
-
-```bash
-ollama serve
-```
-
-```bash
-cd backend && set -a && . ../.env && set +a && .venv/bin/python gateway/ai_gateway.py
-```
-
-```bash
-cloudflared tunnel --url http://localhost:8787
-```
-
-(Install cloudflared once with `brew install cloudflared`.) The tunnel prints an address like `https://something.trycloudflare.com`. That address is the gateway, not Ollama itself. The gateway accepts only chat requests carrying the key. It refuses listing, downloading or deleting models, so the laptop's Ollama is never open to the internet.
-
-### 3. API on Render (once)
-
-1. On Render: **New → Blueprint**, then pick this GitHub repo. It reads `render.yaml`: free plan, Frankfurt, deploys `main` only after CI passes, and runs migrations on every start.
-2. When asked, fill in:
-   - `DATABASE_URL`: the string from step 1
-   - `OLLAMA_BASE_URL`: the tunnel address from step 2
-   - `OLLAMA_API_KEY`: the same value as `GATEWAY_API_KEY`
-   - `CORS_ORIGINS`: leave blank for now; you fill it in step 4
-3. `JWT_SECRET` is generated by Render. Never set it to something you made up.
-4. Wait for the deploy, then open `https://<your-service>.onrender.com/health`. It should show `{"status":"ok"}`.
-
-### 4. Web app on Vercel (once)
-
-1. **New project** from the repo. Set **Root Directory** to `mobile` and **Framework preset** to Other; the rest comes from `vercel.json`.
-2. **Settings → Environment Variables:** add `EXPO_PUBLIC_API_URL` set to the Render address, for example `https://telmi-api.onrender.com`. This tells the app where the API is, and it's built into the app, so redeploy after changing it.
-3. Deploy, then copy the Vercel address (for example `https://telmi.vercel.app`).
-4. Back on Render: set `CORS_ORIGINS` to that Vercel address and save. Render restarts the API with it.
-
-### 5. When the tunnel address changes
-
-On Render, open the service → **Environment** → update `OLLAMA_BASE_URL` → **Save and deploy**. Nothing changes on Vercel.
-
-### Installing the app
-
-- **Android and desktop Chrome:** "Install app" from the browser menu.
-- **iPhone and iPad:** Safari → Share → Add to Home Screen.
-- Voice works in Chrome and on Android. Elsewhere students type and Pip still speaks.
-
-The PWA files are `mobile/public/manifest.json`, the icons, and the manifest link in `mobile/public/index.html`. There's no service worker (offline cache) on purpose; Expo warns it can stop people getting new versions.
-
-To try the production web build locally: `npm run build:web`, then `python3 -m http.server 8090 --directory dist` from `mobile/`.
+The PWA files are `mobile/public/manifest.json`, the icons, and the manifest link in `mobile/public/index.html`. There's no service worker on purpose; Expo warns it can stop people getting new versions.
 
 ## Architecture
 
 - **Mobile app** talks to the backend over HTTPS with JSON. Speech is turned into text **by the device or browser**, so the backend only ever receives text and never stores audio. Pip's voice uses the device's text-to-speech. Both cost the backend nothing per user.
 - **Backend** is stateless, so it can scale horizontally behind a load balancer. PostgreSQL stores users, classes, units and session results.
-- **AI models** sit behind a small interface. Ollama is the free local placeholder; a hosted model can replace it without changing the rest of the code.
+- **AI models** sit behind a small interface. Locally it's Ollama; deployed it's Groq (`app/ai/hosted_model.py`), with a fast model for Pip and a stronger one for grading.
 - **Buddy and checker are separate prompts.** The friendly buddy never confirms anything the strict checker hasn't verified, which protects students from AI that agrees with wrong answers.
 
 ### Accounts and sign-in

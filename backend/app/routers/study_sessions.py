@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.ai.chat_model import ChatModelError
 from app.ai.checker import ApplicationResult, CheckerFeedback
 from app.config import Settings
-from app.dependencies import AppChatModel, AppSettings, DbSession, StudentUser
+from app.dependencies import AppSettings, BuddyModel, CheckerModel, DbSession, StudentUser
 from app.models import StudySession, User
 from app.schemas.study_sessions import (
     SessionDetail,
@@ -103,7 +103,7 @@ def add_turn(
     request: StudentTurnRequest,
     db: DbSession,
     settings: AppSettings,
-    chat_model: AppChatModel,
+    chat_model: BuddyModel,
     student: StudentUser,
 ) -> SessionDetail:
     """Send what the student said and get the buddy's reply."""
@@ -123,7 +123,7 @@ def finish_session(
     session_id: uuid.UUID,
     db: DbSession,
     settings: AppSettings,
-    chat_model: AppChatModel,
+    chat_model: CheckerModel,
     student: StudentUser,
 ) -> SessionDetail:
     """End the session and get the gap map, application question and next step."""
@@ -144,7 +144,7 @@ def answer_application_question(
     request: StudentTurnRequest,
     db: DbSession,
     settings: AppSettings,
-    chat_model: AppChatModel,
+    chat_model: CheckerModel,
     student: StudentUser,
 ) -> SessionDetail:
     """Answer the exam-style question from the feedback and get it graded."""

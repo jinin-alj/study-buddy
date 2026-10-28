@@ -5,6 +5,8 @@ from collections.abc import Iterator
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["JWT_SECRET"] = "test-secret-that-is-long-enough-for-hs256-signing"
+# Tests never call a real AI service, whatever a developer's .env says
+os.environ["AI_PROVIDER"] = "ollama"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -14,7 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from app.database import Base, get_db  # noqa: E402
-from app.dependencies import get_chat_model  # noqa: E402
+from app.dependencies import get_buddy_model, get_checker_model  # noqa: E402
 from app.main import create_app  # noqa: E402
 from tests.fakes import FakeChatModel  # noqa: E402
 
@@ -64,6 +66,7 @@ def client(db: Session, fake_chat_model: FakeChatModel) -> Iterator[TestClient]:
         return fake_chat_model
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_chat_model] = override_get_chat_model
+    app.dependency_overrides[get_buddy_model] = override_get_chat_model
+    app.dependency_overrides[get_checker_model] = override_get_chat_model
     with TestClient(app) as test_client:
         yield test_client
