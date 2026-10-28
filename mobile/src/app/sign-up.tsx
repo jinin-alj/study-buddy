@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/button';
 import { RolePicker } from '@/components/role-picker';
 import { Screen } from '@/components/screen';
+import { SlowRequestNotice } from '@/components/slow-request-notice';
 import { TextField } from '@/components/text-field';
 import { colors, minimumTouchSize, spacing } from '@/theme';
 
@@ -107,6 +108,7 @@ export default function SignUpScreen() {
       ) : null}
 
       <Button label="Create account" onPress={handleSubmit} loading={submitting} />
+      <SlowRequestNotice waiting={submitting} />
 
       <Link href="/sign-in" style={styles.link}>
         Already have an account? Sign in

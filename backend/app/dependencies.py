@@ -77,6 +77,7 @@ def get_chat_model() -> ChatModel:
         model_name=settings.ollama_model,
         timeout_seconds=settings.ollama_timeout_seconds,
         context_tokens=settings.ollama_context_tokens,
+        api_key=settings.ollama_api_key,
     )
 
 

@@ -78,49 +78,89 @@ docker compose exec database psql -U study_buddy -c "CREATE DATABASE study_buddy
 TEST_DATABASE_URL=postgresql+psycopg://study_buddy:<password>@localhost:5432/study_buddy_test .venv/bin/pytest
 ```
 
-## Launching as a web app (PWA)
+## Deploying (free setup)
 
-The mobile app also runs in the browser and can be installed on the home screen as a PWA (progressive web app). People open a link, so they don't need Expo Go or an app store. Updates arrive the next time the page loads.
+Everything runs on free tiers. The only part on the team's laptop is the AI model, because Ollama can't run on free hosting.
 
-> **TEACHERS ONLY until a school signs a data processing agreement.** A public link means anyone can create an account. Share it only with teachers who have had a demo, and don't invite students yet.
-
-**What's set up** (`mobile/`):
-- `public/manifest.json` and icons: name, icons, standalone display, so it can be installed.
-- `public/index.html`: the manifest link, plus the iPhone home-screen tags.
-- `vercel.json`: builds with `npm run build:web` into `dist/`, sends every path to the app so links like `/session/abc` work, and allows the microphone only for this site.
-- There's no service worker (offline cache) on purpose. Expo warns it can stop people getting new versions.
-
-**1. Give the backend a public HTTPS address (quick option: the laptop and a tunnel).** Browsers only allow the microphone on HTTPS pages, and an HTTPS page can't call a plain-HTTP API, so the API needs an HTTPS address too. Keep Postgres, Ollama and the backend running, then in another terminal:
-
-```bash
-brew install cloudflared
-cloudflared tunnel --url http://localhost:8000
+```
+Browser / phone (PWA)  ->  Vercel (web app)
+                       ->  Render, Frankfurt (API, free plan)  ->  Neon or Supabase (Postgres)
+                                                              ->  Cloudflare tunnel  ->  laptop: AI gateway  ->  Ollama
 ```
 
-It prints an address like `https://something.trycloudflare.com`. That's your API URL.
+> **TEACHERS ONLY until a school signs a data processing agreement.** Anyone with the link can create an account. Share it only with teachers who have had a demo.
 
-- The address **changes every time the tunnel restarts**, and the laptop must stay on and awake.
-- It handles only a few people at once; enough for a small teacher preview.
-- The proper option is a hosted backend in the EU plus a hosted AI model.
+**What free costs you**
+- **The API sleeps after 15 minutes idle** and takes up to a minute to wake. It never costs money. The app pings it when it opens and shows "Waking up the server" if signing in is slow.
+- **Pip and the checker only work while the laptop is on**, with Ollama, the gateway and the tunnel running. Otherwise students see "Your buddy can't answer right now".
+- **The tunnel address changes every time the tunnel restarts.** Then you update one setting on Render (step 5).
+- **The laptop handles only a few sessions at once.** That's enough for a teacher preview.
 
-**2. Allow the web app to call the API.** Add the web app's address to `CORS_ORIGINS` in `.env`, separated by commas, then restart the backend:
+### 1. Database (once)
+
+**Neon (recommended):** create a free project in the **Frankfurt / AWS eu-central-1** region, then copy the connection string (`postgresql://…?sslmode=require`). Neon never pauses; it wakes in a few seconds on the first query.
+
+**Supabase (also works):** create a free project in an EU region. Copy the **Session pooler** connection string, port `5432`, username `postgres.<project-ref>`. The direct address is IPv6-only and Render can't reach it. Free Supabase projects pause after a week without use and must be unpaused in the dashboard.
+
+Paste the string exactly as shown; the backend converts it to the driver it needs.
+
+### 2. AI on the laptop (every time you start a session of testing)
+
+Do this once to create the shared key, and keep it secret:
 
 ```bash
-CORS_ORIGINS=http://localhost:8081,https://your-app.vercel.app
+python3 -c "import secrets; print(secrets.token_urlsafe(40))"
 ```
 
-**3. Deploy the front end on Vercel.**
-- New project from the GitHub repo.
-- **Root Directory:** `mobile`. **Framework preset:** Other. The build settings come from `vercel.json`.
-- Add the environment variable `EXPO_PUBLIC_API_URL` set to the tunnel address.
-- Deploy. When the tunnel address changes, update the variable and redeploy, because the URL is built into the app.
+Put the output in the repo's `.env` as `GATEWAY_API_KEY=…`. You'll paste the same value into Render as `OLLAMA_API_KEY`.
 
-**4. Install it.**
+Then run these three, each in its own terminal, and keep them running:
+
+```bash
+ollama serve
+```
+
+```bash
+cd backend && set -a && . ../.env && set +a && .venv/bin/python gateway/ai_gateway.py
+```
+
+```bash
+cloudflared tunnel --url http://localhost:8787
+```
+
+(Install cloudflared once with `brew install cloudflared`.) The tunnel prints an address like `https://something.trycloudflare.com`. That address is the gateway, not Ollama itself. The gateway accepts only chat requests carrying the key. It refuses listing, downloading or deleting models, so the laptop's Ollama is never open to the internet.
+
+### 3. API on Render (once)
+
+1. On Render: **New → Blueprint**, then pick this GitHub repo. It reads `render.yaml`: free plan, Frankfurt, deploys `main` only after CI passes, and runs migrations on every start.
+2. When asked, fill in:
+   - `DATABASE_URL`: the string from step 1
+   - `OLLAMA_BASE_URL`: the tunnel address from step 2
+   - `OLLAMA_API_KEY`: the same value as `GATEWAY_API_KEY`
+   - `CORS_ORIGINS`: leave blank for now; you fill it in step 4
+3. `JWT_SECRET` is generated by Render. Never set it to something you made up.
+4. Wait for the deploy, then open `https://<your-service>.onrender.com/health`. It should show `{"status":"ok"}`.
+
+### 4. Web app on Vercel (once)
+
+1. **New project** from the repo. Set **Root Directory** to `mobile` and **Framework preset** to Other; the rest comes from `vercel.json`.
+2. **Settings → Environment Variables:** add `EXPO_PUBLIC_API_URL` set to the Render address, for example `https://study-buddy-api.onrender.com`. This tells the app where the API is, and it's built into the app, so redeploy after changing it.
+3. Deploy, then copy the Vercel address (for example `https://study-buddy.vercel.app`).
+4. Back on Render: set `CORS_ORIGINS` to that Vercel address and save. Render restarts the API with it.
+
+### 5. When the tunnel address changes
+
+On Render, open the service → **Environment** → update `OLLAMA_BASE_URL` → **Save and deploy**. Nothing changes on Vercel.
+
+### Installing the app
+
 - **Android and desktop Chrome:** "Install app" from the browser menu.
 - **iPhone and iPad:** Safari → Share → Add to Home Screen.
-- Voice works in Chrome and on Android. Where the browser can't recognise speech, students type and Pip still speaks.
+- Voice works in Chrome and on Android. Elsewhere students type and Pip still speaks.
 
-To try the production build locally: `npm run build:web`, then `python3 -m http.server 8090 --directory dist` from `mobile/`. This simple server doesn't handle direct links to inner pages; Vercel's config does.
+The PWA files are `mobile/public/manifest.json`, the icons, and the manifest link in `mobile/public/index.html`. There's no service worker (offline cache) on purpose; Expo warns it can stop people getting new versions.
+
+To try the production web build locally: `npm run build:web`, then `python3 -m http.server 8090 --directory dist` from `mobile/`.
 
 ## Architecture
 
