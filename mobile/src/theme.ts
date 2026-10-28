@@ -6,8 +6,12 @@ export const colors = {
   mutedText: '#4B5563',
   border: '#6B7280',
   primary: '#1D4ED8',
+  primarySoft: '#DBEAFE',
   onPrimary: '#FFFFFF',
   error: '#B91C1C',
+  success: '#047857',
+  successSoft: '#D1FAE5',
+  warningSoft: '#FEF3C7',
 };
 
 export const spacing = {

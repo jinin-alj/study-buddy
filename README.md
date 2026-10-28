@@ -6,7 +6,7 @@ Students explain a topic **out loud, from memory**, to an AI classmate who doesn
 
 ## Status
 
-MVP in progress. Done so far: repository tooling and CI, backend accounts (sign-up, login, token refresh), backend classes, units and study sessions with the buddy and checker, the backend teacher dashboard and student progress, and mobile sign-up and sign-in. Features land on the branches listed under "Roadmap".
+MVP in progress. Done so far: repository tooling and CI, backend accounts (sign-up, login, token refresh), backend classes, units and study sessions with the buddy and checker, the backend teacher dashboard and student progress, mobile sign-up and sign-in, and the mobile student experience (join a class, voice session with Pip, results, mascot). Features land on the branches listed under "Roadmap".
 
 ## Repository layout
 
@@ -75,7 +75,7 @@ TEST_DATABASE_URL=postgresql+psycopg://study_buddy:<password>@localhost:5432/stu
 
 ## Architecture
 
-- **Mobile app** talks to the backend over HTTPS with JSON. Speech is recognised **on the device** (free at any scale, no audio leaves the phone). The buddy's voice uses on-device text-to-speech.
+- **Mobile app** talks to the backend over HTTPS with JSON. Speech is turned into text **by the device or browser**, so the backend only ever receives text and never stores audio. Pip's voice uses the device's text-to-speech. Both cost the backend nothing per user.
 - **Backend** is stateless, so it can scale horizontally behind a load balancer. PostgreSQL stores users, classes, units and session results.
 - **AI models** sit behind a small interface. Ollama is the free local placeholder; a hosted model can replace it without changing the rest of the code.
 - **Buddy and checker are separate prompts.** The friendly buddy never confirms anything the strict checker hasn't verified, which protects students from AI that agrees with wrong answers.
@@ -160,6 +160,29 @@ If the model fails, the app gets a **503 and nothing is saved**, so the student 
 | `components/` | Accessible text field, button, role picker and page wrapper. |
 | `theme.ts` | Colours that meet WCAG 2.1 AA contrast, and the 44-point minimum touch size. |
 
+### Student experience
+
+- **Home** (`features/student/`): Pip's card (level and ideas understood), each class with its units, "Last time: 4 of 6 key ideas", the next step, and a join-by-code form. It reloads every time the screen comes back into view.
+- **Session** (`app/session/[sessionId].tsx`, `features/session/`):
+  - Pip's latest line is shown large and read aloud.
+  - The student taps the microphone, explains, taps again, checks what was heard, fixes any mistakes in the transcript, then sends.
+  - "Type instead" is always available, and becomes the default where speech recognition isn't supported.
+  - Turns and minutes left are shown. The conversation is hidden unless asked for, to keep the screen quiet.
+  - Language can be English or Español; it defaults from the device.
+  - Pip's voice can be turned off, and speech stops when the student leaves the screen.
+- **Results:**
+  - "You explained X of Y key ideas"
+  - each idea marked *Explained* or *Still to explain*, in words and not just colour
+  - "Things to fix" (*You said / Actually*)
+  - the next step, read aloud
+  - the exam-style question, answered the same way and then graded
+  - "Explain it again"
+- **Speech layer** (`speech/`): screens never use the speech libraries directly. `use-speech-to-text.ts` wraps `expo-speech-recognition`, `text-to-speech.ts` wraps `expo-speech`, and `transcript.ts` holds the pure rule for joining phrases.
+
+> **PRIVACY: on the web, Chrome sends the audio to Google's servers to recognise it; Safari uses Apple's.** Study Buddy never receives or stores audio, but the browser vendor does process it. That is a GDPR consideration for minors: tell schools and families, and prefer on-device recognition in the native apps (the `requiresOnDeviceRecognition` option) before launch.
+
+**Where voice works:** Chrome and Safari on desktop, and Chrome on Android. It doesn't work in Firefox or Brave, or in Chrome on iPhone; those users get the typing box. **Expo Go can't run speech recognition**, because it's a native module. Phones need a development build (`npx expo run:ios|android`, or EAS).
+
 **Token storage.** The access token is kept **in memory only**. The refresh token goes in the device keychain on iOS and Android (`expo-secure-store`). On web it goes in `sessionStorage`, which survives a reload but is cleared when the tab closes. That's safer than `localStorage`, but any script running on the page could still read it. Before a public web launch, move it to an `HttpOnly` cookie set by the backend.
 
 To point the app at another backend, set `EXPO_PUBLIC_API_URL` (default `http://localhost:8000`).
@@ -182,7 +205,8 @@ To point the app at another backend, set `EXPO_PUBLIC_API_URL` (default `http://
 - The dashboard is computed on each request. That's fine for class-sized data; cache it if classes get very large.
 - The first model call after Ollama starts takes about 15 seconds while the model loads. After that, buddy replies take about 1 second and the checker about 9 seconds on an M-series Mac.
 - Model calls block a worker thread while they wait. That's fine for the MVP; at scale, run more workers or move these routes to async.
-- On-device speech recognition works in Chrome on the web today. Phones need an Expo development build.
+- Voice has been tested only by its code paths and unit tests; nobody has yet spoken into it end to end. Phones need an Expo development build.
+- **The checker sometimes lists the buddy's planted mistake under "You said".** Students could be blamed for words they never said. A backend guard that drops misconceptions not found in the student's own turns is the recommended next fix.
 - **No login rate limiting yet.** Add it at the gateway (or with Redis) before launch; see the `TODO` in `app/routers/auth.py`.
 - **No password reset**, because accounts have no email. A teacher-led reset is a possible follow-up.
 - **Tokens can't be revoked early.** A stolen refresh token works until it expires. A server-side denylist would fix this if needed.
