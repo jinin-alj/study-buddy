@@ -67,7 +67,14 @@ APPLICATION_REPLY = json.dumps(
 )
 
 
-def checker_reply(covered_numbers: list[int], misconception_idea: int | None = 2) -> str:
+MISCONCEPTION_SAID = "Plants get their food from the soil"
+
+
+def checker_reply(
+    covered_numbers: list[int],
+    misconception_idea: int | None = 2,
+    student_said: str = MISCONCEPTION_SAID,
+) -> str:
     """A checker verdict covering these 1-based ideas, with one misconception."""
     idea_results = []
     for idea_number in range(1, len(KEY_IDEAS) + 1):
@@ -78,7 +85,7 @@ def checker_reply(covered_numbers: list[int], misconception_idea: int | None = 2
             "idea_results": idea_results,
             "misconceptions": [
                 {
-                    "student_said": "Plants get their food from the soil",
+                    "student_said": student_said,
                     "correction": "Plants make glucose using energy from sunlight",
                     "idea_number": misconception_idea,
                 }

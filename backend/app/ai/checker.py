@@ -1,11 +1,15 @@
+import logging
 from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
+from app.ai.attribution import said_by_student
 from app.ai.chat_model import ChatMessage, ChatModel, ChatModelError
 from app.ai.transcript import escape_tags, format_transcript, wrap_student_text
-from app.models import SessionTurn, Unit
+from app.models import SessionTurn, Speaker, Unit
+
+logger = logging.getLogger(__name__)
 
 # Grading must be repeatable, so no randomness
 CHECKER_TEMPERATURE = 0.0
@@ -241,7 +245,36 @@ def check_explanation(
         },
     ]
     verdict: CheckerVerdict = request_structured_reply(chat_model, messages, CheckerVerdict)
+    verdict.misconceptions = drop_misattributed(verdict.misconceptions, turns)
     return build_feedback(verdict, key_ideas)
+
+
+def join_speaker_text(turns: list[SessionTurn], speaker: Speaker) -> str:
+    """Everything one speaker said in the session, as a single text."""
+    lines = []
+    for turn in turns:
+        if turn.speaker == speaker:
+            lines.append(turn.text)
+    return "\n".join(lines)
+
+
+def drop_misattributed(
+    misconceptions: list[MisconceptionResult], turns: list[SessionTurn]
+) -> list[MisconceptionResult]:
+    """Keep only mistakes the student really said, so nobody is blamed for the buddy's words."""
+    student_text = join_speaker_text(turns, Speaker.STUDENT)
+    buddy_text = join_speaker_text(turns, Speaker.BUDDY)
+
+    kept = []
+    for misconception in misconceptions:
+        if said_by_student(misconception.student_said, student_text, buddy_text):
+            kept.append(misconception)
+
+    dropped_count = len(misconceptions) - len(kept)
+    if dropped_count > 0:
+        # Counts only: the text itself is a minor's data and stays out of the logs
+        logger.info("Dropped %d misconceptions the student did not say", dropped_count)
+    return kept
 
 
 def grade_application_answer(

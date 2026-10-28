@@ -6,6 +6,7 @@ from app.services.dashboard import calculate_mascot
 from tests.fakes import FakeChatModel
 from tests.helpers import (
     KEY_IDEAS,
+    MISCONCEPTION_SAID,
     checker_reply,
     create_class_with_unit,
     finish_session,
@@ -25,7 +26,9 @@ def run_session(
     """Start, speak once and finish a session with a chosen verdict."""
     session = client.post("/sessions", json={"unit_id": unit_id}, headers=student).json()
     fake_chat_model.queue_reply("Why?")
-    client.post(f"/sessions/{session['id']}/turns", json={"text": "Plants..."}, headers=student)
+    client.post(
+        f"/sessions/{session['id']}/turns", json={"text": MISCONCEPTION_SAID}, headers=student
+    )
     verdict = checker_reply(covered_numbers, misconception_idea)
     response = finish_session(
         client, fake_chat_model, student, session["id"], verdict, first_on_unit
