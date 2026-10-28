@@ -78,6 +78,50 @@ docker compose exec database psql -U study_buddy -c "CREATE DATABASE study_buddy
 TEST_DATABASE_URL=postgresql+psycopg://study_buddy:<password>@localhost:5432/study_buddy_test .venv/bin/pytest
 ```
 
+## Launching as a web app (PWA)
+
+The mobile app also runs in the browser and can be installed on the home screen as a PWA (progressive web app). People open a link, so they don't need Expo Go or an app store. Updates arrive the next time the page loads.
+
+> **TEACHERS ONLY until a school signs a data processing agreement.** A public link means anyone can create an account. Share it only with teachers who have had a demo, and don't invite students yet.
+
+**What's set up** (`mobile/`):
+- `public/manifest.json` and icons: name, icons, standalone display, so it can be installed.
+- `public/index.html`: the manifest link, plus the iPhone home-screen tags.
+- `vercel.json`: builds with `npm run build:web` into `dist/`, sends every path to the app so links like `/session/abc` work, and allows the microphone only for this site.
+- There's no service worker (offline cache) on purpose. Expo warns it can stop people getting new versions.
+
+**1. Give the backend a public HTTPS address (quick option: the laptop and a tunnel).** Browsers only allow the microphone on HTTPS pages, and an HTTPS page can't call a plain-HTTP API, so the API needs an HTTPS address too. Keep Postgres, Ollama and the backend running, then in another terminal:
+
+```bash
+brew install cloudflared
+cloudflared tunnel --url http://localhost:8000
+```
+
+It prints an address like `https://something.trycloudflare.com`. That's your API URL.
+
+- The address **changes every time the tunnel restarts**, and the laptop must stay on and awake.
+- It handles only a few people at once; enough for a small teacher preview.
+- The proper option is a hosted backend in the EU plus a hosted AI model.
+
+**2. Allow the web app to call the API.** Add the web app's address to `CORS_ORIGINS` in `.env`, separated by commas, then restart the backend:
+
+```bash
+CORS_ORIGINS=http://localhost:8081,https://your-app.vercel.app
+```
+
+**3. Deploy the front end on Vercel.**
+- New project from the GitHub repo.
+- **Root Directory:** `mobile`. **Framework preset:** Other. The build settings come from `vercel.json`.
+- Add the environment variable `EXPO_PUBLIC_API_URL` set to the tunnel address.
+- Deploy. When the tunnel address changes, update the variable and redeploy, because the URL is built into the app.
+
+**4. Install it.**
+- **Android and desktop Chrome:** "Install app" from the browser menu.
+- **iPhone and iPad:** Safari → Share → Add to Home Screen.
+- Voice works in Chrome and on Android. Where the browser can't recognise speech, students type and Pip still speaks.
+
+To try the production build locally: `npm run build:web`, then `python3 -m http.server 8090 --directory dist` from `mobile/`. This simple server doesn't handle direct links to inner pages; Vercel's config does.
+
 ## Architecture
 
 - **Mobile app** talks to the backend over HTTPS with JSON. Speech is turned into text **by the device or browser**, so the backend only ever receives text and never stores audio. Pip's voice uses the device's text-to-speech. Both cost the backend nothing per user.
