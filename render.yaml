@@ -24,7 +24,8 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         sync: false
-      - key: OLLAMA_BASE_URL
-        sync: false
-      - key: OLLAMA_API_KEY
+      # Always-on AI on Groq: a fast model for Pip, a stronger one for grading
+      - key: AI_PROVIDER
+        value: hosted
+      - key: AI_API_KEY
         sync: false

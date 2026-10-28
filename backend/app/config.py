@@ -1,6 +1,7 @@
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Hosted databases (Neon, Supabase, Render) hand out URLs in these forms
@@ -39,6 +40,21 @@ class Settings(BaseSettings):
     # Ollama's default context window is too small for material plus a full conversation
     ollama_context_tokens: int = Field(default=8192, gt=0)
 
+    # "ollama" for local development; "hosted" for an always-on OpenAI-compatible API such as Groq
+    ai_provider: Literal["ollama", "hosted"] = "ollama"
+    ai_base_url: str = "https://api.groq.com/openai/v1"
+    ai_api_key: str | None = None
+    ai_timeout_seconds: float = Field(default=60.0, gt=0)
+    # A fast model keeps Pip's replies quick; grading uses a stronger one
+    ai_buddy_model: str = "llama-3.1-8b-instant"
+    ai_checker_model: str = "openai/gpt-oss-120b"
+    # Groq's gpt-oss models accept a JSON schema; its Llama models only support plain JSON mode
+    ai_checker_json_schema: bool = True
+    # Low effort keeps hidden reasoning short, which saves the free daily token budget
+    ai_checker_reasoning_effort: str | None = "low"
+    # Free tiers count this cap against tokens per minute, so keep it modest
+    ai_checker_max_tokens: int = Field(default=2048, gt=0)
+
     # Short, capped sessions keep the app from becoming more screen time
     session_minutes: int = Field(default=15, gt=0)
     max_student_turns: int = Field(default=8, gt=0)
@@ -48,6 +64,13 @@ class Settings(BaseSettings):
     def use_psycopg_driver(cls, value: str) -> str:
         """Accept the URL exactly as the database host shows it."""
         return normalise_database_url(value)
+
+    @model_validator(mode="after")
+    def require_key_for_hosted_ai(self) -> "Settings":
+        """Fail at startup, not mid-demo, when the hosted AI has no key."""
+        if self.ai_provider == "hosted" and not self.ai_api_key:
+            raise ValueError("AI_API_KEY is required when AI_PROVIDER is hosted")
+        return self
 
     def cors_origin_list(self) -> list[str]:
         """Split the comma-separated CORS_ORIGINS value into a list."""
