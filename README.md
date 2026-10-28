@@ -6,7 +6,7 @@ Students explain a topic **out loud, from memory**, to an AI classmate who doesn
 
 ## Status
 
-MVP in progress. Done so far: repository tooling and CI, backend accounts (sign-up, login, token refresh), and backend classes, units and study sessions with the buddy and checker. Features land on the branches listed under "Roadmap".
+MVP in progress. Done so far: repository tooling and CI, backend accounts (sign-up, login, token refresh), backend classes, units and study sessions with the buddy and checker, and the backend teacher dashboard and student progress. Features land on the branches listed under "Roadmap".
 
 ## Repository layout
 
@@ -101,7 +101,7 @@ TEST_DATABASE_URL=postgresql+psycopg://study_buddy:<password>@localhost:5432/stu
 2. The teacher adds **units**: a title plus their own material (50–12,000 characters). Students never receive the material through the API, so sessions stay closed-book.
 3. A **student** joins with the code, picks a unit and starts a session. The buddy, Pip, greets them with a fixed line, so there's no wait.
 4. Each time the student speaks, the buddy replies with one curious question. About once every three replies it says a plausible mistake for the student to correct. It never confirms whether the student is right.
-5. On **finish**, the checker grades the whole conversation against the material and returns:
+5. On **finish**, the checker grades the whole conversation against the unit's **fixed key ideas** and returns:
    - a **gap map**: key ideas marked covered or missing
    - **misconceptions**, each with a correction, including any of the buddy's planted mistakes the student agreed with
    - one exam-style **application question**
@@ -122,6 +122,19 @@ Sessions are capped at **15 minutes and 8 student turns** (`SESSION_MINUTES`, `M
 | `POST` | `/sessions/{id}/turns` | student | Send what you said, get the buddy's reply |
 | `POST` | `/sessions/{id}/finish` | student | Get the gap map, question and next step |
 | `POST` | `/sessions/{id}/application-answer` | student | Answer the question, get it graded |
+| `GET` | `/classrooms/{id}/dashboard` | owner teacher | Class and per-student results |
+| `GET` | `/progress/me` | student | Own progress and mascot |
+
+**Fixed key ideas.** The first time any session on a unit finishes, the model extracts 3–8 key ideas from the material. They're stored on the unit (`units.key_ideas`), and the row is locked during extraction so two students finishing at once can't get different lists. Every later session is graded on that same list, which is what makes results comparable across students. Adding a unit never waits on the model.
+
+### Teacher dashboard and student progress
+
+A student's standing on a unit is their **latest** finished session, so earlier struggles don't hold them back.
+
+- **Per unit (class view):** how many students attempted it and their average coverage. For each key idea: how many students covered or missed it, how many misconceptions about it, and up to three **anonymous** examples. Misconceptions that don't match any idea are listed separately.
+- **Per student:** sessions completed, latest coverage and missing ideas per unit, and an average across the units attempted.
+- Students are **listed by name, never ranked**. There are no leaderboards, no streaks and no time-spent metrics; the research flagged ranking and labelling as harms.
+- **Mascot:** grows one level per 5 distinct key ideas the student has explained correctly, across all their sessions. Time in the app doesn't count. The app decides what each level looks like.
 
 Anything a user isn't allowed to see answers **404, not 403**, so outsiders can't tell whether a class or session exists.
 
@@ -143,7 +156,14 @@ If the model fails, the app gets a **503 and nothing is saved**, so the student 
 ## Known limitations
 
 - Ollama on a laptop serves only a few sessions at once and an 8B model makes a weak checker. Switch to a hosted model before real users.
-- **Checker accuracy is unmeasured.** In a live test, `llama3.1:8b` caught the real misconception and the missing ideas, but it misread a correct answer to the application question. Before any teacher sees scores, have teachers grade 100–200 explanations and compare them with the checker's.
+- **Checker accuracy is unmeasured, and with `llama3.1:8b` it is not good enough for teachers yet.** Live tests separated a strong student (67%) from a weak one (17%) correctly. But the model also:
+  - under-credited an idea the student did explain
+  - flagged correct statements as misconceptions
+  - once attributed the buddy's planted mistake to the student
+
+  Before any teacher sees scores: switch to a stronger model, then have teachers grade 100–200 explanations and compare them with the checker's.
+- Sessions graded before a unit had fixed key ideas are left out of idea-level tallies (they still count for coverage).
+- The dashboard is computed on each request. That's fine for class-sized data; cache it if classes get very large.
 - The first model call after Ollama starts takes about 15 seconds while the model loads. After that, buddy replies take about 1 second and the checker about 9 seconds on an M-series Mac.
 - Model calls block a worker thread while they wait. That's fine for the MVP; at scale, run more workers or move these routes to async.
 - On-device speech recognition works in Chrome on the web today. Phones need an Expo development build.
